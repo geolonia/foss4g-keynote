@@ -41,7 +41,9 @@ probe_origin() {
 
 entry_of() {
   # 与えられた HTML が読み込んでいるエントリ JS 名（先頭 1 件）。
-  printf '%s' "$1" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -n 1 || true
+  # main- が現行（vite.config.ts の input: main/ja/post）。index- は旧 livedeck
+  # 命名で、過去の配信物が残っている場合の診断表示のために残す。
+  printf '%s' "$1" | grep -oE 'assets/(main|index)-[A-Za-z0-9_-]+\.js' | head -n 1 || true
 }
 
 kind=""

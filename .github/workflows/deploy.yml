@@ -62,9 +62,11 @@ jobs:
       - id: bundle
         run: |
           set -euo pipefail
-          # dist/index.html が読み込むエントリ JS（assets/index-<hash>.js）を取り出す。
+          # dist/index.html が読み込むエントリ JS（assets/main-<hash>.js）を取り出す。
+          # マルチエントリ構成（vite.config.ts の input: main/ja/post）のため、
+          # 旧 livedeck の index-<hash>.js ではなく main-<hash>.js が正（PR#4 で変更）。
           # 取れなければ後段のスモークチェックが無意味になるので fail-loud。
-          name=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' dist/index.html | head -n 1 || true)
+          name=$(grep -oE 'assets/main-[A-Za-z0-9_-]+\.js' dist/index.html | head -n 1 || true)
           [ -n "$name" ] || { echo "エントリ JS を dist/index.html から特定できません"; exit 1; }
           echo "name=$name" >> "$GITHUB_OUTPUT"
           echo "expected bundle: $name"

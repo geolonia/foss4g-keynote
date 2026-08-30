@@ -46,8 +46,13 @@ test.describe("scaffold smoke (754d harness)", () => {
 
     await page.setContent(`<script>console.error("expected-smoke-error")</script>`);
     await expect.poll(() => consoleErrors).toContain("expected-smoke-error");
-    // failedRequestsは本specでは未使用(0件)だが、リスナー自体が正しく配線されている
-    // ことは上のconsoleErrors捕捉で担保される。本番specでは両方を使う。
-    expect(failedRequests.length).toBe(0);
+
+    // requestfailedリスナーが実際に配線されていることを、意図的にabortさせた
+    // リクエストで確認する(空配列のままではリスナー未配線でもテストが通って
+    // しまうため・CodeRabbit指摘)。
+    const ABORT_URL = "https://example.invalid/subtask-754d-smoke-abort";
+    await page.route(ABORT_URL, (route) => route.abort("failed"));
+    await page.evaluate((url) => fetch(url).catch(() => undefined), ABORT_URL);
+    await expect.poll(() => failedRequests).toContain(ABORT_URL);
   });
 });

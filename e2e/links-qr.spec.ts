@@ -18,17 +18,28 @@ import { decodeQrFromLocator } from "./lib/qr";
  *
  * QRは印刷・投影される都合上、本番公開URL(GitHub Pages)を符号化する
  * のが正しい設計であり、ローカル検証(baseURL=localhost)とは
- * originが一致しないのが通常。よって判定は「パスが/post/であるか」を
- * 主とし、実際のnavigate+要素assertは(a) baseURLと同一origin
- * (デプロイ後にE2E_BASE_URLを指定して実行する場合)、または
- * (b) 既知の本番公開origin(GitHub Pages)の場合にのみ行う。
+ * originが一致しないのが通常。よって判定は「パスが想定の投稿ページパスと
+ * 完全一致するか」を主とし、実際のnavigate+要素assertは(a) baseURLと
+ * 同一origin(デプロイ後にE2E_BASE_URLを指定して実行する場合)、または
+ * (b) 既知の本番公開origin(GitHub Pages)の場合にも必ず行う——
+ * ただし本番が未デプロイで実際に到達できない場合に限り、その旨を明示した
+ * 上でPlaywright公式のtest.skip()で正直にSKIP扱いにする(黙って
+ * PASS扱いにする沈黙no-opの再発防止・CodeRabbit指摘)。
  * それ以外(未知のorigin・旧livedeck等)は明確な欠陥として報告する。
+ *
+ * QRペイロードは印刷・投影される都合上、baseURLに依存せず単独で解決できる
+ * 絶対URLでなければならない(相対パスのQRは印刷物単体では機能しない)。
+ * よって `new URL(decoded)` はbaseURLへのフォールバックなしで行い、
+ * 相対パスは即座に欠陥として扱う(CodeRabbit指摘)。
  */
-const EXPECTED_POST_PATH = "/post/";
+const EXPECTED_POST_SEGMENT = "post/";
 const KNOWN_PRODUCTION_ORIGINS = ["https://geolonia.github.io"];
+// deploy.yml: `BASE_URL: /${{ github.event.repository.name }}/` — GitHub Pages が
+// リポジトリ名をサブパスにする実際の値(このリポジトリでは固定文字列として既知)。
+const KNOWN_PRODUCTION_BASE_PATH = "/foss4g-keynote/";
 
 for (const lang of ["en", "ja"] as const) {
-  const base = lang === "en" ? "/" : "/ja/";
+  const base = lang === "en" ? "./" : "./ja/";
 
   test(`seed スライドのQR(${lang}): ピクセルデコード→着地→投稿フォーム要素assert`, async ({ page, baseURL }) => {
     await page.goto(base + "#1", { waitUntil: "load" });
@@ -48,12 +59,16 @@ for (const lang of ["en", "ja"] as const) {
     const ariaLabel = await qr.getAttribute("aria-label");
     console.log(`[754d QR実測 ${lang}] pixel-decoded="${decoded}" aria-label="${ariaLabel}"`);
 
-    const decodedUrl = new URL(decoded!, baseURL);
-    expect(
-      decodedUrl.pathname,
-      `QRの着地先パス "${decodedUrl.pathname}" が本リポの投稿ページ(${EXPECTED_POST_PATH})でない ` +
-        `(旧livedeckまたは無関係のURLを指している疑いが強い・cmd_754の目的に反する回帰)。`,
-    ).toContain(EXPECTED_POST_PATH);
+    // ★絶対URL必須(baseURLへのフォールバックなし)。相対パスのQRは印刷物単体で
+    // 機能しないため、それ自体を欠陥として扱う。
+    let decodedUrl: URL;
+    try {
+      decodedUrl = new URL(decoded!);
+    } catch {
+      throw new Error(
+        `QRペイロード "${decoded}" が絶対URLでない(相対パスは印刷・投影されるQRとして機能しない)。`,
+      );
+    }
 
     const isTestOwnOrigin = !!baseURL && decodedUrl.origin === new URL(baseURL).origin;
     const isKnownProductionOrigin = KNOWN_PRODUCTION_ORIGINS.includes(decodedUrl.origin);
@@ -65,20 +80,48 @@ for (const lang of ["en", "ja"] as const) {
       );
     }
 
+    // 想定パスはリポジトリ名サブパスの有無で変わるため、実際に使われている
+    // baseURL(own origin時)または既知の本番BASE_URL(production origin時)から
+    // 動的に導出する——ハードコードした "/post/" への `includes` 判定では
+    // "/legacy/post/" のような誤誘導を通してしまうため、完全一致で検証する
+    // (CodeRabbit指摘)。
+    const expectedPostPath = isTestOwnOrigin
+      ? new URL(EXPECTED_POST_SEGMENT, baseURL).pathname
+      : KNOWN_PRODUCTION_BASE_PATH + EXPECTED_POST_SEGMENT;
+
+    expect(
+      decodedUrl.pathname,
+      `QRの着地先パス "${decodedUrl.pathname}" が想定の投稿ページパス "${expectedPostPath}" と一致しない ` +
+        `(旧livedeckまたは無関係のURLを指している疑いが強い・cmd_754の目的に反する回帰)。`,
+    ).toBe(expectedPostPath);
+
     if (!isTestOwnOrigin) {
-      // 本番originを指している(パスも/post/で正しい)が、ローカル検証環境からは
-      // 未デプロイの可能性が高いため実navigateは行わない(デプロイ後は
-      // E2E_BASE_URL=<デプロイ済みURL> で実行すれば isTestOwnOrigin 側の
-      // 分岐に入り、実際に着地して #cb-form まで実assertされる)。
-      console.log(
-        `[754d QR実測 ${lang}] 着地先は本番origin "${decodedUrl.origin}" かつパスも正しい(/post/)。` +
-          `ローカル検証環境のbaseURL(${baseURL})とは別originのため実navigateは省略した ` +
-          `(デプロイ後にE2E_BASE_URLを指定して再実行すれば実着地まで検証される)。`,
-      );
+      // 本番originかつパスも正しいが、テスト自身のbaseURL(ローカル/未デプロイ環境)
+      // とはoriginが異なる。実際にnavigateして#cb-formの存在までassertする
+      // (CodeRabbit指摘: originが違うというだけで検証を省略してはならない)。
+      // ただし本番へ実際にデプロイが完了していない場合は、コード上の欠陥と
+      // 区別が付かない誤検知になるため、navigate失敗または非2xxのみ
+      // test.skip()で正直にSKIP扱いにする(黙ってPASSにはしない)。
+      let response: Awaited<ReturnType<typeof page.goto>> = null;
+      try {
+        response = await page.goto(decodedUrl.toString(), { waitUntil: "load", timeout: 15_000 });
+      } catch (err) {
+        test.skip(true, `本番origin "${decodedUrl.origin}" へのnavigateが失敗した(未デプロイの疑い): ${err}`);
+        return;
+      }
+      if (!response || response.status() >= 400) {
+        test.skip(
+          true,
+          `本番origin "${decodedUrl.origin}" は現時点で ${decodedUrl.pathname} を提供していない` +
+            `(status=${response?.status()})。デプロイ後にE2E_BASE_URLを指定して再実行せよ。`,
+        );
+        return;
+      }
+      await expect(page.locator("#cb-form")).toBeVisible();
       return;
     }
 
-    await page.goto(decoded!, { waitUntil: "load" });
+    await page.goto(decodedUrl.toString(), { waitUntil: "load" });
     await expect(page.locator("#cb-form")).toBeVisible();
   });
 }

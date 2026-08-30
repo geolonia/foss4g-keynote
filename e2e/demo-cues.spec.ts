@@ -34,7 +34,7 @@ async function gotoSlide(page: Page, base: string, targetSlug: string) {
 }
 
 for (const lang of ["en", "ja"] as const) {
-  const base = lang === "en" ? "/" : "/ja/";
+  const base = lang === "en" ? "./" : "./ja/";
 
   test(`CUE①→②の境界(${lang}): seedスライドでは地図が隠れ、titleスライドで初めてinsetが現れる`, async ({ page }) => {
     await page.goto(base + "#1", { waitUntil: "load" });

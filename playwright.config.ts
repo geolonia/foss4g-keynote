@@ -3,7 +3,15 @@ import { defineConfig } from "@playwright/test";
 // subtask_754d: geonicdb-console の playwright.config.ts (E2E_BASE_URL パターン) をそのまま流用。
 // E2E_BASE_URL を渡すと、ローカル Vite dev server の代わりに任意の環境
 // (例: GitHub Pages 本番) に対して同じスペックを実行できる。
-const baseURL = process.env.E2E_BASE_URL || "http://localhost:5996";
+//
+// GitHub Pages 本番は deploy.yml で BASE_URL=/foss4g-keynote/ を指定してビルドするため、
+// E2E_BASE_URL には末尾スラッシュ付きのパスプレフィックス込みURLが渡される想定
+// (例: https://geolonia.github.io/foss4g-keynote/)。末尾に "/" が無いと、spec側の
+// page.goto("./...") のような相対パス解決がリポジトリ名プレフィックスを失うため、
+// ここで末尾スラッシュを必ず補う(CodeRabbit指摘・実害: page.goto("/") 等の
+// 絶対パス解決はプレフィックスを完全に破棄するため、spec側も相対パス表記に統一する)。
+const rawBaseURL = process.env.E2E_BASE_URL || "http://localhost:5996";
+const baseURL = rawBaseURL.endsWith("/") ? rawBaseURL : `${rawBaseURL}/`;
 
 export default defineConfig({
   testDir: "./e2e",

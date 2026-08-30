@@ -158,6 +158,39 @@ export function initContributionMap(getLang: () => MapLang = () => "ja"): { refr
     if (statusSpan) statusSpan.textContent = msg;
   }
 
+  /* CodeRabbit指摘(PR#7): refreshLang()がrenderLegend/renderのみを再実行すると、
+     loading/fetchFailed/libFailed/styleFailedの各状態文言はmapが無い/データ未取得
+     のままrender()が早期returnし、切替前の言語のまま取り残される。表示中の状態種別
+     を保持し、切替時はその状態からstatus文言を再構成する。 */
+  type MapStatusState =
+    | { kind: "loading" }
+    | { kind: "fetchFailed" }
+    | { kind: "libFailed" }
+    | { kind: "styleFailed"; msg: string }
+    | { kind: "loaded" };
+  let statusState: MapStatusState = { kind: "loading" };
+
+  function renderStatus(): void {
+    const s = MAP_STR[getLang()];
+    switch (statusState.kind) {
+      case "loading":
+        setStatus(s.loading);
+        break;
+      case "fetchFailed":
+        setStatus(s.fetchFailed);
+        break;
+      case "libFailed":
+        setStatus(s.libFailed);
+        break;
+      case "styleFailed":
+        setStatus(s.styleFailed(statusState.msg));
+        break;
+      case "loaded":
+        render();
+        break;
+    }
+  }
+
   function renderLegend(): void {
     if (!legendEl) return;
     const s = MAP_STR[getLang()];
@@ -201,6 +234,7 @@ export function initContributionMap(getLang: () => MapLang = () => "ja"): { refr
     if (src) src.setData(fc);
     const seededN = fc.features.filter((f) => f.properties.seeded).length;
     const realN = fc.features.length - seededN;
+    statusState = { kind: "loaded" };
     setStatus(MAP_STR[getLang()].status(realN, seededN, skipped));
   }
 
@@ -211,7 +245,7 @@ export function initContributionMap(getLang: () => MapLang = () => "ja"): { refr
   function refreshLang(): void {
     if (titleLabelSpan) titleLabelSpan.textContent = MAP_STR[getLang()].title;
     renderLegend();
-    render();
+    renderStatus();
   }
 
   function addLayers(): void {
@@ -281,6 +315,7 @@ export function initContributionMap(getLang: () => MapLang = () => "ja"): { refr
       })
       .catch((err: unknown) => {
         console.error("[contributionMap]", err);
+        statusState = { kind: "fetchFailed" };
         setStatus(MAP_STR[getLang()].fetchFailed);
       });
   }
@@ -288,6 +323,7 @@ export function initContributionMap(getLang: () => MapLang = () => "ja"): { refr
   function loadAndSubscribe(): void {
     if (dataStarted) return;
     dataStarted = true;
+    statusState = { kind: "loading" };
     setStatus(MAP_STR[getLang()].loading);
     // ★先にentityCreated購読を確立してから初期取得する（取得〜購読確立の間に
     // 届いた投稿を取りこぼさぬため）。idベースの上書きゆえ二重計上はしない。
@@ -313,6 +349,7 @@ export function initContributionMap(getLang: () => MapLang = () => "ja"): { refr
     buildDom();
     GL = window.geolonia || window.maplibregl || null;
     if (!GL || typeof GL.Map !== "function") {
+      statusState = { kind: "libFailed" };
       setStatus(MAP_STR[getLang()].libFailed);
       return;
     }
@@ -335,9 +372,9 @@ export function initContributionMap(getLang: () => MapLang = () => "ja"): { refr
         });
       })
       .catch((err: unknown) => {
-        setStatus(
-          MAP_STR[getLang()].styleFailed(err instanceof Error ? err.message : String(err)),
-        );
+        const msg = err instanceof Error ? err.message : String(err);
+        statusState = { kind: "styleFailed", msg };
+        setStatus(MAP_STR[getLang()].styleFailed(msg));
       });
   }
 

@@ -102,6 +102,25 @@ test.describe("独立投稿ページ /post/", () => {
     await expect(page.locator("#cb-submit")).toHaveText(/投稿に失敗/);
   });
 
+  test("言語切替: 地図が読込中/取得失敗の間も状態文言が上書きされず現在の言語で保たれる(CodeRabbit指摘対応)", async ({
+    page,
+  }) => {
+    // localhostはWS認証(DPoP nonce)が構造的に失敗するため、地図は"読込中…"の
+    // ままとどまる(既知の構造的制約)。これを利用して、refreshLang()が
+    // render()を無条件実行して「読込中」を「表示中: 0件」へ上書きしてしまう
+    // 旧バグ(CodeRabbit指摘)が再発していないことを確認する。
+    await page.goto("./post/");
+    await page.click("#cb-map-toggle");
+    const status = page.locator("#cb-map .fb-chart__total");
+    await expect(status).toHaveText("Loading…");
+
+    await page.click("#cb-lang-toggle");
+    await expect(status).toHaveText("読み込み中…");
+
+    await page.click("#cb-lang-toggle");
+    await expect(status).toHaveText("Loading…");
+  });
+
   test("出身地欄は日本限定ではない: datalistに国名が含まれ、国名を自由入力して検証を通過できる", async ({
     page,
   }) => {

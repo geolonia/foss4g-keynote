@@ -105,13 +105,20 @@ export function initKeynoteMap(): void {
     map.on("click", "contrib-seeded", (ev: any) => ev.features?.[0] && showPopup(ev.features[0]));
   }
 
+  // 取得成功で初めて historyFetched を立てる。失敗時は上限つきで再試行し、
+  // WS 購読前に作成された投稿がスライド14の収穫で欠けないようにする。
   let historyFetched = false;
+  let historyInFlight = false;
+  let historyAttempts = 0;
+  const HISTORY_MAX_ATTEMPTS = 3;
   function fetchHistory(): void {
-    if (historyFetched) return;
-    historyFetched = true;
+    if (historyFetched || historyInFlight || historyAttempts >= HISTORY_MAX_ATTEMPTS) return;
+    historyInFlight = true;
+    historyAttempts += 1;
     db!
       .getEntities({ type: CONTRIBUTION_TYPE, limit: 1000 })
       .then((res: unknown) => {
+        historyFetched = true;
         const list: Record<string, unknown>[] = Array.isArray(res) ? res : [];
         list.forEach((e) => {
           const id = e.id as string | undefined;
@@ -122,6 +129,12 @@ export function initKeynoteMap(): void {
       .catch((err: unknown) => {
         console.error("[keynoteMap]", err);
         setStatus(JA ? "データ取得に失敗" : "data fetch failed");
+        if (historyAttempts < HISTORY_MAX_ATTEMPTS) {
+          setTimeout(fetchHistory, 2000 * historyAttempts);
+        }
+      })
+      .finally(() => {
+        historyInFlight = false;
       });
   }
 

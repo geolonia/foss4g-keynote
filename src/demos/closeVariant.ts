@@ -24,6 +24,11 @@ export function initCloseVariant(): void {
       : JA ? "締め: 2問" : "Close: 2Q";
   }
 
+  // deck 側の document keydown が Space を「次スライド」に奪うため、
+  // フォーカス中のボタン上では伝播を止めて click として機能させる。
+  btn.addEventListener("keydown", (e) => {
+    if (e.key === " ") e.stopPropagation();
+  });
   btn.addEventListener("click", () => {
     threeQ = !threeQ;
     apply();

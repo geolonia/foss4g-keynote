@@ -89,10 +89,13 @@ test.describe("独立投稿ページ /post/", () => {
   test("言語切替: 送信中/失敗状態でも切替後の言語で正しく再描画される(CodeRabbit指摘対応)", async ({
     page,
   }) => {
+    // CodeRabbit指摘(PR#7): localhostのallowedOrigins拒否という外部要因に
+    // 依存せず、createEntity(POST)自体をテスト内で決定的に失敗させる
+    // (allowedOriginsが将来localhostを許可しても本テストは失敗状態へ到達し続ける)。
+    await page.route("**/ngsi-ld/v1/entities", (route) =>
+      route.request().method() === "POST" ? route.abort() : route.continue(),
+    );
     await page.goto("./post/");
-    // localhostはContribution keyのallowedOriginsに含まれず実通信が拒否される
-    // (既知の構造的制約)ため、有効な入力を送信すると確実に失敗状態(is-err)に
-    // 到達する — これを利用して「送信中/失敗の文言が言語トグル後も正しいか」を検証する。
     await page.fill("#cb-origin", "France");
     await page.fill("#cb-specialty", "Fromage");
     await page.click("#cb-submit");
@@ -105,10 +108,18 @@ test.describe("独立投稿ページ /post/", () => {
   test("言語切替: 地図が読込中/取得失敗の間も状態文言が上書きされず現在の言語で保たれる(CodeRabbit指摘対応)", async ({
     page,
   }) => {
-    // localhostはWS認証(DPoP nonce)が構造的に失敗するため、地図は"読込中…"の
-    // ままとどまる(既知の構造的制約)。これを利用して、refreshLang()が
-    // render()を無条件実行して「読込中」を「表示中: 0件」へ上書きしてしまう
-    // 旧バグ(CodeRabbit指摘)が再発していないことを確認する。
+    // CodeRabbit指摘(PR#7): localhostのWS認証失敗という外部要因に依存せず、
+    // WS接続の起点(DPoP nonce取得)とREST fallback(GET entities)の両方を
+    // テスト内で意図的にハングさせ、"読込中…"状態を決定的に維持する
+    // (allowedOrigins/DPoPが将来localhostで通っても本テストは読込中を保ち続ける)。
+    await page.route("**/auth/nonce", () => new Promise(() => {}));
+    // getEntities()は?type=...&limit=...等のクエリ付きでリクエストされるため、
+    // パス末尾一致のみで判定する(単一エンティティ取得の/entities/{id}とは
+    // 末尾に"entities"が来ない点で区別できる)。
+    await page.route(
+      (url) => url.pathname.endsWith("/ngsi-ld/v1/entities"),
+      (route) => (route.request().method() === "GET" ? new Promise(() => {}) : route.continue()),
+    );
     await page.goto("./post/");
     await page.click("#cb-map-toggle");
     const status = page.locator("#cb-map .fb-chart__total");
@@ -135,9 +146,12 @@ test.describe("独立投稿ページ /post/", () => {
     expect(options).toContain("Taiwan");
     expect(options.some((v) => v.includes("Japan"))).toBe(true);
 
-    // datalistに無い国名(Bavaria)を含め、自由入力がバリデーションを通過することを実証。
-    await page.fill("#cb-origin", "Bavaria, Germany");
-    await page.fill("#cb-specialty", "Weisswurst");
+    // CodeRabbit指摘(PR#7): "Bavaria, Germany"はdatalist自身に候補として
+    // 含まれているため、候補外の自由入力を検証したことにならない。
+    // datalistに存在しない値("Quebec, Canada")へ変更し、真に自由入力である
+    // ことを検証する。
+    await page.fill("#cb-origin", "Quebec, Canada");
+    await page.fill("#cb-specialty", "Poutine");
     await page.click("#cb-submit");
     await expect(page.locator("#cb-err-origin")).toHaveText("");
     await expect(page.locator("#cb-err-specialty")).toHaveText("");

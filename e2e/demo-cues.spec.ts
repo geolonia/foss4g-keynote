@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 /**
  * subtask_754d 検証項目 5: DEMO CUEの実行(沈黙no-op対策)。
@@ -21,7 +21,7 @@ import { test, expect } from "@playwright/test";
  * e2e/post-page.spec.ts で既に実assert済みにつき本specでは扱わない。
  */
 
-async function gotoSlide(page: import("@playwright/test").Page, base: string, targetSlug: string) {
+async function gotoSlide(page: Page, base: string, targetSlug: string) {
   await page.goto(base + "#1", { waitUntil: "load" });
   await page.waitForTimeout(1500);
   for (let i = 0; i < 16; i++) {

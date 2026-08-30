@@ -42,7 +42,7 @@ for (const lang of ["en", "ja"] as const) {
     );
 
     // 本リポ配下の相対パスへ誘導しているか(絶対URLでも自リポのoriginなら許容)。
-    const decodedUrl = new URL(decoded!, base ? new URL(base, baseURL ?? "http://localhost").href : baseURL);
+    const decodedUrl = new URL(decoded!, baseURL);
     const isSameOriginPost =
       baseURL && decodedUrl.origin === new URL(baseURL).origin && decodedUrl.pathname.includes(EXPECTED_POST_PATH);
 

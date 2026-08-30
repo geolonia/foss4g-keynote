@@ -24,12 +24,13 @@ for (const lang of ["en", "ja"] as const) {
       if (msg.type() === "error") consoleErrors.push(msg.text());
     });
     page.on("requestfailed", (req) => {
-      // net::ERR_ABORTED はMapLibre GLがコンテナresize/mode切替のたびに
-      // 実行中のタイル取得を意図的にキャンセルする際の正常系(実測で確認:
-      // #inset-mapがhidden→inset→fullとモード遷移する本デッキの16スライド一周中、
+      // net::ERR_ABORTED はMapLibre GLがコンテナresize/mode切替のたびに実行中の
+      // タイル取得を意図的にキャンセルする際の正常系(実測で確認: #inset-mapが
+      // hidden→inset→fullとモード遷移する本デッキの16スライド一周中、
       // mobile-iphoneプロジェクト(高deviceScaleFactor)でのみ再現し、実データの
-      // 欠落やUIの破綻は伴わない)。実際の失敗(404・DNS・timeout等)のみを対象とする。
-      if (req.failure()?.errorText === "net::ERR_ABORTED") return;
+      // 欠落やUIの破綻は伴わない)。tileserver.geolonia.com宛のタイル要求に限って
+      // 除外し、それ以外(自前JS/API等)のERR_ABORTEDは引き続き失敗として扱う。
+      if (req.failure()?.errorText === "net::ERR_ABORTED" && req.url().includes("tileserver.geolonia.com")) return;
       failedRequests.push(`${req.url()} — ${req.failure()?.errorText}`);
     });
 

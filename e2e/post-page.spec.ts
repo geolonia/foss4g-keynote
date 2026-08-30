@@ -1,5 +1,17 @@
 import { test, expect } from "@playwright/test";
 
+declare global {
+  interface Window {
+    __contributionDb?: { deleteEntity(id: string): Promise<unknown> };
+  }
+}
+
+/** "地図に表示中: N 件（+仕込み M 件）..." から実投稿件数Nを取り出す。 */
+function parseRealCount(text: string | null): number {
+  const m = /地図に表示中:\s*(\d+)/.exec(text ?? "");
+  return m ? Number(m[1]) : NaN;
+}
+
 /**
  * subtask_754b: 独立投稿ページ /post/ の実ブラウザ検証。
  *
@@ -75,27 +87,51 @@ test.describe("独立投稿ページ /post/", () => {
     );
     await page.goto("/post/");
 
-    const countBefore = await page.locator("#cb-count").textContent();
+    // カウンタの初期取得(db.count())完了を待ってから基準値を取る。
+    const counter = page.locator("#cb-count");
+    await expect.poll(async () => counter.textContent(), { timeout: 15_000 }).not.toBe(null);
+    const countBefore = await counter.textContent();
+
+    // 地図タブを先に開き、地図側のWS購読を確立してから実投稿件数の基準値を読む
+    // (このE2E投稿自身が地図に反映されたことを確認するための下準備)。
+    await page.click("#cb-map-toggle");
+    const status = page.locator("#cb-map .fb-chart__total");
+    await expect(status).toContainText(/地図に表示中/, { timeout: 15_000 });
+    const realCountBefore = parseRealCount(await status.textContent());
 
     // 会場の生データと混同されぬよう明示的にE2Eタグを付ける
     // (家老指示の既存運用: subtask_751系のテスト投稿と同じ命名規則)。
     const origin = "E2E-テスト県";
     const specialty = "E2E-automated-test（自動テスト・削除予定）";
 
+    const createRequest = page.waitForRequest(
+      (req) => req.method() === "POST" && req.url().endsWith("/ngsi-ld/v1/entities"),
+    );
+
     await page.fill("#cb-origin", origin);
     await page.fill("#cb-specialty", specialty);
     await page.click("#cb-submit");
 
-    await expect(page.locator("#cb-submit")).toHaveText(/投稿しました/, { timeout: 15_000 });
+    // 投稿はNGSI-LDエンティティとして送信される(idはクライアント側で生成済み)。
+    // 実バックエンドへ残さぬよう、成功・失敗を問わず必ず削除する(CodeRabbit指摘)。
+    const created = await createRequest;
+    const entityId = (created.postDataJSON() as { id: string }).id;
 
-    // カウンタが増える(WS/初期GETいずれかで反映)。
-    await expect
-      .poll(async () => page.locator("#cb-count").textContent(), { timeout: 15_000 })
-      .not.toBe(countBefore);
+    try {
+      await expect(page.locator("#cb-submit")).toHaveText(/投稿しました/, { timeout: 15_000 });
 
-    // 地図側にも反映される(開いてWS購読→自分の投稿が地図のステータス行に出る)。
-    await page.click("#cb-map-toggle");
-    const status = page.locator("#cb-map .fb-chart__total");
-    await expect(status).toContainText(/地図に表示中/, { timeout: 15_000 });
+      // カウンタが基準値から増える(WS/count再取得いずれかで反映)。
+      await expect
+        .poll(async () => counter.textContent(), { timeout: 15_000 })
+        .not.toBe(countBefore);
+
+      // 地図側の実投稿件数が基準値より増えている
+      // (単に「地図に表示中」文言が出るだけでなく、今回の投稿自身の反映を確認する)。
+      await expect
+        .poll(async () => parseRealCount(await status.textContent()), { timeout: 15_000 })
+        .toBeGreaterThan(realCountBefore);
+    } finally {
+      await page.evaluate((id) => window.__contributionDb?.deleteEntity(id), entityId);
+    }
   });
 });

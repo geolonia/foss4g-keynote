@@ -15,6 +15,15 @@ import { validateContribution, type ContributionInput, type ContributionField } 
 import { buildContributionEntity, CONTRIBUTION_MODEL } from "./contributionEntity";
 import { initContributionMap } from "./contributionMap";
 
+declare global {
+  interface Window {
+    /** E2E(post-page.spec.ts)がテスト投稿を削除するためだけに使う。
+     *  apiKeyは元々JSバンドルに同梱されクライアント可視ゆえ、露出による
+     *  セキュリティ上の追加リスクはない。 */
+    __contributionDb?: ReturnType<typeof createContributionClient>;
+  }
+}
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -60,30 +69,42 @@ function initMapToggle(): void {
 /** 独立投稿ページの初期化。スライド index には一切依存せず、ページ読込直後に開始する。 */
 export function initContributionPost(): void {
   const db = createContributionClient();
-  let count = 0;
-  const seen: Record<string, true> = Object.create(null);
+  window.__contributionDb = db;
 
-  function bumpCount(id: string | undefined): void {
-    if (!id || seen[id]) return;
-    seen[id] = true;
-    count += 1;
-    setCount(count);
+  let lastCount = 0;
+  function refreshCount(): void {
+    db.count({ type: CONTRIBUTION_MODEL.type })
+      .then((n) => {
+        // 複数のcount()呼び出しが競合し応答が逆順で届いても、投影画面の
+        // カウンタが一瞬減って見えないようにする(単調増加を保証)。
+        if (n > lastCount) {
+          lastCount = n;
+          setCount(n);
+        }
+      })
+      .catch((err: unknown) => console.warn("[contributionPost] count fetch failed", err));
   }
 
-  db.getEntities({ type: CONTRIBUTION_MODEL.type, limit: 1000 })
-    .then((res) => {
-      const list = Array.isArray(res) ? res : [];
-      list.forEach((e) => bumpCount((e as Record<string, unknown>).id as string | undefined));
-    })
-    .catch((err: unknown) => console.warn("[contributionPost] initial count fetch failed", err));
+  let countFetched = false;
+  function fetchInitialCount(): void {
+    if (countFetched) return; // 'subscribed'とWS失敗fallbackの二重発火防止
+    countFetched = true;
+    refreshCount();
+  }
 
-  db.on("entityCreated", (evt) => {
-    const e = evt as unknown as { entityId?: string; entity?: { id?: string } };
-    bumpCount(e.entity?.id ?? e.entityId);
-  });
+  // ★先にentityCreated購読を確立してから初期件数を取得する('subscribed'契機)。
+  // 購読確立前に作成された投稿はentityCreatedとして再送されないため、
+  // 逆順(先に取得→後で購読)だと購読確立までの間の投稿を取りこぼす。
+  // また件数は db.count() で取得する — db.getEntities({limit:1000}) だと
+  // 1,000件超で総数が実数より少なく表示される。
+  db.on("entityCreated", () => refreshCount());
+  db.on("subscribed", () => fetchInitialCount());
   db.on("error", (err) => console.warn("[contributionPost] ws", err));
   db.subscribe({ entityTypes: [CONTRIBUTION_MODEL.type] });
-  db.connect().catch((err: unknown) => console.warn("[contributionPost] connect failed", err));
+  db.connect().catch((err: unknown) => {
+    console.warn("[contributionPost] connect failed", err);
+    fetchInitialCount(); // WS不通でも初期表示だけは試みる(画面が空白のまま止まらぬよう)
+  });
 
   const form = byId<HTMLFormElement>("cb-form");
   const btn = byId<HTMLButtonElement>("cb-submit");

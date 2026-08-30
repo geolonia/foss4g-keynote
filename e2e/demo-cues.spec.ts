@@ -21,6 +21,13 @@ import { test, expect, type Page } from "@playwright/test";
  * e2e/post-page.spec.ts で既に実assert済みにつき本specでは扱わない。
  */
 
+test.skip(
+  !process.env.E2E_754D_DECK_READY,
+  "PR#3(754b-post-page)・PR#4(754c-rebuild-slides)がmainへ未マージのため" +
+    "index.html/スライド一式が存在せず実行不可(CodeRabbit指摘)。統合worktree等" +
+    "実デッキ環境ではE2E_754D_DECK_READY=1を指定して実行すること。",
+);
+
 async function gotoSlide(page: Page, base: string, targetSlug: string) {
   await page.goto(base + "#1", { waitUntil: "load" });
   await page.waitForTimeout(1500);

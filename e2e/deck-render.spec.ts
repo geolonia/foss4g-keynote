@@ -12,6 +12,13 @@ import { test, expect } from "@playwright/test";
  * (検出はCUE系specでcanvas等を直接assertする)。ただし周辺の失敗
  * (アセット404・未捕捉例外等)はここで拾える。
  */
+test.skip(
+  !process.env.E2E_754D_DECK_READY,
+  "PR#3(754b-post-page)・PR#4(754c-rebuild-slides)がmainへ未マージのため" +
+    "index.html/post/等が存在せず実行不可(CodeRabbit指摘)。統合worktree等" +
+    "実デッキ環境ではE2E_754D_DECK_READY=1を指定して実行すること。",
+);
+
 const SLIDE_COUNT = 16;
 
 /**

@@ -15,7 +15,17 @@ import { defineConfig } from "@playwright/test";
 // API キーが origin 制限付きで localhost:8745 のみ許可されているため)。8745 を
 // 別プロセス(例: livedeck の dev server)が使っている場合は E2E_PORT で逃がせる
 // (API キー未使用のローカル計測ではポートは任意)。
-const port = Number(process.env.E2E_PORT || 8745);
+// E2E_PORT は 1-65535 の整数のみ許容する(CodeRabbit指摘・実害: 非数値/小数/0/
+// 範囲外の値を無検証で webServer.port や vite --port に渡すと、Vite起動が
+// 意味不明なエラーで落ちるか、意図しないポートで待受してテストが永久タイムアウトする)。
+function resolvePort(raw: string | undefined): number {
+  if (raw === undefined) return 8745;
+  if (!/^\d+$/.test(raw) || Number(raw) < 1 || Number(raw) > 65535) {
+    throw new Error(`E2E_PORT must be an integer between 1 and 65535, got: "${raw}"`);
+  }
+  return Number(raw);
+}
+const port = resolvePort(process.env.E2E_PORT);
 const rawBaseURL = process.env.E2E_BASE_URL || `http://localhost:${port}`;
 const baseURL = rawBaseURL.endsWith("/") ? rawBaseURL : `${rawBaseURL}/`;
 

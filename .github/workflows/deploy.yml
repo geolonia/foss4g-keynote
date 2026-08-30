@@ -25,8 +25,11 @@ jobs:
       pages: read
     outputs:
       # 公開後のスモークチェックで「ライブが最新バンドルか」を突き合わせるための
-      # エントリ JS のファイル名（内容ハッシュ付き）。
+      # エントリ JS のファイル名（内容ハッシュ付き）。ページごとに 1 つずつ。
+      # / と /ja/ は main チャンクを共有し、/post/ は独立エントリ。
       bundle: ${{ steps.bundle.outputs.name }}
+      bundle_ja: ${{ steps.bundle.outputs.name_ja }}
+      bundle_post: ${{ steps.bundle.outputs.name_post }}
     steps:
       - uses: actions/checkout@v7
       # Pages の公開ソースが "GitHub Actions" かを先に確かめる。
@@ -62,14 +65,26 @@ jobs:
       - id: bundle
         run: |
           set -euo pipefail
-          # dist/index.html が読み込むエントリ JS（assets/main-<hash>.js）を取り出す。
-          # マルチエントリ構成（vite.config.ts の input: main/ja/post）のため、
-          # 旧 livedeck の index-<hash>.js ではなく main-<hash>.js が正（PR#4 で変更）。
+          # 各ページの HTML が読み込むエントリ JS を取り出す。マルチエントリ構成
+          # （vite.config.ts の input: main/ja/post）のため、旧 livedeck の
+          # index-<hash>.js ではなく main-<hash>.js（/ と /ja/ が共有）と
+          # post-<hash>.js（/post/）が正（PR#4/#3 で変更）。
           # 取れなければ後段のスモークチェックが無意味になるので fail-loud。
-          name=$(grep -oE 'assets/main-[A-Za-z0-9_-]+\.js' dist/index.html | head -n 1 || true)
-          [ -n "$name" ] || { echo "エントリ JS を dist/index.html から特定できません"; exit 1; }
-          echo "name=$name" >> "$GITHUB_OUTPUT"
-          echo "expected bundle: $name"
+          extract() { # $1=HTML パス $2=チャンク名プレフィックス
+            local found
+            found=$(grep -oE "assets/$2-[A-Za-z0-9_-]+\.js" "$1" | head -n 1 || true)
+            [ -n "$found" ] || { echo "エントリ JS ($2-*.js) を $1 から特定できません" >&2; exit 1; }
+            echo "$found"
+          }
+          name=$(extract dist/index.html main)
+          name_ja=$(extract dist/ja/index.html main)
+          name_post=$(extract dist/post/index.html post)
+          {
+            echo "name=$name"
+            echo "name_ja=$name_ja"
+            echo "name_post=$name_post"
+          } >> "$GITHUB_OUTPUT"
+          echo "expected bundles: /=$name /ja/=$name_ja /post/=$name_post"
       - uses: actions/upload-pages-artifact@v5
         with:
           path: ./dist
@@ -94,8 +109,22 @@ jobs:
         uses: actions/deploy-pages@v5
       # 公開が CDN へ反映され、かつ今ビルドしたバンドルが配信されているかを検証する。
       # 「push は成功／公開は古いまま」のズレ（issue #42）をここで赤にする。
-      - name: Verify live site serves the freshly built bundle
+      # 全公開ページ（/・/ja/・/post/）をそれぞれ検証する（単一ページの成功で
+      # 他ページの未反映を見逃さないため）。
+      - name: Verify live site serves the freshly built bundle (/)
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
           EXPECTED: ${{ needs.build.outputs.bundle }}
+        run: .github/scripts/verify-pages-deploy.sh
+      - name: Verify live site serves the freshly built bundle (/ja/)
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          SUBPATH: ja/
+          EXPECTED: ${{ needs.build.outputs.bundle_ja }}
+        run: .github/scripts/verify-pages-deploy.sh
+      - name: Verify live site serves the freshly built bundle (/post/)
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          SUBPATH: post/
+          EXPECTED: ${{ needs.build.outputs.bundle_post }}
         run: .github/scripts/verify-pages-deploy.sh

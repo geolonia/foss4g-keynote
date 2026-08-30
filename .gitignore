@@ -6,3 +6,6 @@ dist/
 .env.local
 .env.*.local
 .envrc
+test-results/
+playwright-report/
+blob-report/

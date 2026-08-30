@@ -12,7 +12,7 @@
    「カスタムデータモデル（GET /custom-data-models/Contribution）」を
    表示し、件数・集計は WebSocket の entityCreated でリアルタイム更新する。
    認可は Contribution 専用の integration key（テナント foss4g_2026・
-   ENTERPRISE契約。デッキ共通の config.key/miya とは別物)。
+   ENTERPRISE契約）。
    =================================================================== */
 import type GeonicDB from "@geolonia/geonicdb-sdk";
 import { createContributionClient } from "../lib/client";

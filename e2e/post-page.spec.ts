@@ -71,6 +71,37 @@ test.describe("独立投稿ページ /post/", () => {
     await expect(page.locator("#cb-err-origin")).toHaveText(/Please enter where you're from/);
   });
 
+  test("言語切替: 地図内部(タイトル・凡例・状態文言)も現在の言語で描画される(CodeRabbit指摘対応)", async ({
+    page,
+  }) => {
+    await page.goto("./post/");
+    await page.click("#cb-map-toggle");
+    const title = page.locator("#cb-map .fb-chart__title");
+    await expect(title).toContainText("Venue Map");
+    const legend = page.locator("#cb-map .fb-chart__legend");
+    await expect(legend).toContainText("Venue submissions");
+
+    await page.click("#cb-lang-toggle");
+    await expect(title).toContainText("会場地図");
+    await expect(legend).toContainText("会場の投稿");
+  });
+
+  test("言語切替: 送信中/失敗状態でも切替後の言語で正しく再描画される(CodeRabbit指摘対応)", async ({
+    page,
+  }) => {
+    await page.goto("./post/");
+    // localhostはContribution keyのallowedOriginsに含まれず実通信が拒否される
+    // (既知の構造的制約)ため、有効な入力を送信すると確実に失敗状態(is-err)に
+    // 到達する — これを利用して「送信中/失敗の文言が言語トグル後も正しいか」を検証する。
+    await page.fill("#cb-origin", "France");
+    await page.fill("#cb-specialty", "Fromage");
+    await page.click("#cb-submit");
+    await expect(page.locator("#cb-submit")).toHaveText(/Failed — please retry/, { timeout: 15_000 });
+
+    await page.click("#cb-lang-toggle");
+    await expect(page.locator("#cb-submit")).toHaveText(/投稿に失敗/);
+  });
+
   test("出身地欄は日本限定ではない: datalistに国名が含まれ、国名を自由入力して検証を通過できる", async ({
     page,
   }) => {

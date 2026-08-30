@@ -186,6 +186,21 @@ export function initContributionPost(): void {
   const form = byId<HTMLFormElement>("cb-form");
   const btn = byId<HTMLButtonElement>("cb-submit");
   let btnTimer = 0;
+  // CodeRabbit指摘(PR#7): is-ok/is-err/disabledをclassList/disabledから逆算せず、
+  // 状態を明示的に保持する。言語トグル時にどの文言(idle/sending/ok/err)を
+  // 描画すべきかを、途中の状態(送信中・成功・失敗)を問わず正しく判定するため。
+  let submitState: "idle" | "sending" | "ok" | "err" = "idle";
+  function renderSubmitLabel(): void {
+    if (!btn) return;
+    btn.textContent =
+      submitState === "sending"
+        ? STR[lang].submitSending
+        : submitState === "ok"
+          ? STR[lang].submitOk
+          : submitState === "err"
+            ? STR[lang].submitErr
+            : STR[lang].submitIdle;
+  }
 
   form?.addEventListener("submit", (ev) => {
     ev.preventDefault();
@@ -197,33 +212,31 @@ export function initContributionPost(): void {
     if (!result.ok) return;
     const entity = buildContributionEntity(raw, { seeded: false, submittedAt: nowIso() });
     if (btnTimer) window.clearTimeout(btnTimer);
+    submitState = "sending";
     if (btn) {
       btn.disabled = true;
       btn.classList.remove("is-ok", "is-err");
-      btn.textContent = STR[lang].submitSending;
     }
+    renderSubmitLabel();
     db.createEntity(entity)
       .then(() => {
-        if (btn) {
-          btn.classList.add("is-ok");
-          btn.textContent = STR[lang].submitOk;
-        }
+        submitState = "ok";
+        btn?.classList.add("is-ok");
+        renderSubmitLabel();
         form.reset();
         lastRaw = null;
         lastErrors = null;
         btnTimer = window.setTimeout(() => {
-          if (btn) {
-            btn.classList.remove("is-ok");
-            btn.textContent = STR[lang].submitIdle;
-          }
+          submitState = "idle";
+          btn?.classList.remove("is-ok");
+          renderSubmitLabel();
         }, 3000);
       })
       .catch((err: unknown) => {
         console.warn("[contributionPost] create failed", err);
-        if (btn) {
-          btn.classList.add("is-err");
-          btn.textContent = STR[lang].submitErr;
-        }
+        submitState = "err";
+        btn?.classList.add("is-err");
+        renderSubmitLabel();
       })
       .finally(() => {
         if (btn) btn.disabled = false;
@@ -231,7 +244,7 @@ export function initContributionPost(): void {
   });
 
   initMapToggle(() => lang);
-  initContributionMap();
+  const mapApi = initContributionMap(() => lang);
 
   const langBtn = byId<HTMLButtonElement>("cb-lang-toggle");
   langBtn?.addEventListener("click", () => {
@@ -239,15 +252,14 @@ export function initContributionPost(): void {
     langBtn.setAttribute("aria-pressed", String(lang === "ja"));
     applyStaticText(lang);
     setCount(lang, lastCount);
-    if (btn && !btn.disabled && !btn.classList.contains("is-ok") && !btn.classList.contains("is-err")) {
-      btn.textContent = STR[lang].submitIdle;
-    }
+    renderSubmitLabel();
     const map = byId("cb-map");
     const mapToggleBtn = byId<HTMLButtonElement>("cb-map-toggle");
     if (map && mapToggleBtn) {
       mapToggleBtn.textContent = map.hidden ? STR[lang].mapOpen : STR[lang].mapClose;
     }
     if (lastRaw && lastErrors) renderErrors(lang, lastRaw, lastErrors);
+    mapApi.refreshLang();
   });
 }
 

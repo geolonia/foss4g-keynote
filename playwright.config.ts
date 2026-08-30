@@ -10,7 +10,11 @@ import { defineConfig } from "@playwright/test";
 // page.goto("./...") のような相対パス解決がリポジトリ名プレフィックスを失うため、
 // ここで末尾スラッシュを必ず補う(CodeRabbit指摘・実害: page.goto("/") 等の
 // 絶対パス解決はプレフィックスを完全に破棄するため、spec側も相対パス表記に統一する)。
-const rawBaseURL = process.env.E2E_BASE_URL || "http://localhost:5996";
+//
+// ポートは 8745 固定(vite.config.ts の server/preview port と同一)。Geolonia Maps の
+// API キーが origin 制限付きで localhost:8745 のみ許可されているため、他ポートで
+// 起動すると地図が読み込めない(PR#3/754b merge時に判明・pulse 準拠)。
+const rawBaseURL = process.env.E2E_BASE_URL || "http://localhost:8745";
 const baseURL = rawBaseURL.endsWith("/") ? rawBaseURL : `${rawBaseURL}/`;
 
 export default defineConfig({
@@ -20,6 +24,7 @@ export default defineConfig({
   use: {
     baseURL,
     headless: true,
+    screenshot: "only-on-failure",
   },
   projects: [
     {
@@ -30,9 +35,9 @@ export default defineConfig({
       name: "mobile-iphone",
       use: {
         browserName: "chromium",
-        // iPhone 12/13 相当の viewport + UA（デバイス定義を丸ごと使うと
+        // iPhone 12/13 相当の viewport + UA(デバイス定義を丸ごと使うと
         // isMobile: true が touch エミュレーションを要求し headless chromium で
-        // 落ちる環境があったため、viewport/UA のみ明示指定する）。
+        // 落ちる環境があったため、viewport/UA のみ明示指定する)。
         viewport: { width: 390, height: 844 },
         userAgent:
           "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
@@ -46,11 +51,8 @@ export default defineConfig({
     ? {}
     : {
         webServer: {
-          // Vite のデフォルトポート 5173 は共有ホスト上の無関係プロジェクトと衝突しうる。
-          // reuseExistingServer:true にすると既存プロセスへ誤接続して別アプリを検証する
-          // 事故が起きるため false 固定（geonicdb-console の作法に倣う）。
-          command: "npx vite --port 5996",
-          port: 5996,
+          command: "npx vite --port 8745",
+          port: 8745,
           timeout: 30_000,
           reuseExistingServer: false,
         },

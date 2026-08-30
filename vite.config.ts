@@ -45,7 +45,15 @@ export default defineConfig(({ mode }) => {
     preview: { port: 8745, strictPort: true },
     build: {
       // Geolonia Maps は CDN グローバル（window.geolonia）として読み込むためバンドル対象外。
-      rollupOptions: { external: ["geolonia"] },
+      rollupOptions: {
+        external: ["geolonia"],
+        // マルチページビルド: デッキ本体（index.html・subtask/754c で再構築中）と
+        // 独立投稿ページ（/post/・本 subtask）を別エントリとして両方 dist へ出す。
+        input: {
+          main: resolve(process.cwd(), "index.html"),
+          post: resolve(process.cwd(), "post/index.html"),
+        },
+      },
     },
     plugins: [
       {

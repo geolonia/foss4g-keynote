@@ -1,52 +1,66 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * subtask_754d 検証項目 1・2・7:
- *   1. 全ページ(デッキ全スライド+投稿ページ)を実際にPlaywrightで開く(curl/grep不可)
- *   2. レンダリング後DOMでsvg数・図版スライド数・文字のみスライド数を実測する
- *   7. console/network エラーを捕捉する
+ * subtask_754d 検証項目 7: console/networkエラー捕捉。
  *
- * ★TODO(754d-integration): ashigaru3(754a index.html scaffold)着地後、
- * ".slide" のセレクタ・想定スライド数を実物と突き合わせて skip を外すこと。
- * 現時点(2026-08-30時点)ではリポジトリに index.html が存在しないため
- * 実行不能ゆえ意図的に skip している(将軍指示: 骨組みは先に書く/統合待ちは待機)。
+ * svg数・図版スライド数等の視覚定量計測は e2e/keynote-visual.spec.ts に
+ * 統合済み(実スライドslug・ArrowRightナビゲーションを既に正しく実装している
+ * ためここでは重複させない)。本specはデッキ全体を一周する間の
+ * console error / failed request の捕捉に専念する。
+ *
+ * ★沈黙no-op自体はエラーを出さないため、これだけでは検出できない
+ * (検出はCUE系specでcanvas等を直接assertする)。ただし周辺の失敗
+ * (アセット404・未捕捉例外等)はここで拾える。
  */
-test.describe("deck render + visual metrics (実測)", () => {
-  test.skip(
-    !process.env.E2E_754D_DECK_READY,
-    "ashigaru3の index.html scaffold + ashigaru6のスライド着地待ち(E2E_754D_DECK_READY=1で有効化)",
-  );
+const SLIDE_COUNT = 16;
 
-  test("全スライドが描画され、svg/図版/文字のみの実数が取得できる", async ({ page }) => {
+for (const lang of ["en", "ja"] as const) {
+  const base = lang === "en" ? "/" : "/ja/";
+
+  test(`デッキ一周(${lang})でconsole error・failed requestが無い`, async ({ page }) => {
     const consoleErrors: string[] = [];
     const failedRequests: string[] = [];
     page.on("console", (msg) => {
-      if (msg.type() === "error") consoleErrors.push(`${msg.text()} (${page.url()})`);
+      if (msg.type() === "error") consoleErrors.push(msg.text());
     });
-    page.on("requestfailed", (req) => failedRequests.push(`${req.url()} — ${req.failure()?.errorText}`));
+    page.on("requestfailed", (req) => {
+      // net::ERR_ABORTED はMapLibre GLがコンテナresize/mode切替のたびに
+      // 実行中のタイル取得を意図的にキャンセルする際の正常系(実測で確認:
+      // #inset-mapがhidden→inset→fullとモード遷移する本デッキの16スライド一周中、
+      // mobile-iphoneプロジェクト(高deviceScaleFactor)でのみ再現し、実データの
+      // 欠落やUIの破綻は伴わない)。実際の失敗(404・DNS・timeout等)のみを対象とする。
+      if (req.failure()?.errorText === "net::ERR_ABORTED") return;
+      failedRequests.push(`${req.url()} — ${req.failure()?.errorText}`);
+    });
 
-    await page.goto("/");
-    await expect(page.locator(".slide").first()).toBeVisible();
+    await page.goto(base + "#1", { waitUntil: "load" });
+    await page.waitForTimeout(2000);
+    for (let n = 1; n < SLIDE_COUNT; n++) {
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(1100); // keynote-visual.spec.tsと同じ遷移間隔(実運転相当)
+    }
 
-    const slideCount = await page.locator(".slide").count();
-    expect(slideCount).toBeGreaterThan(0);
-
-    // ソースHTMLの数ではなく、レンダリング後DOM(page.locator)から実測する。
-    const svgCount = await page.locator("svg").count();
-    const slidesWithSvg = await page.locator(".slide:has(svg)").count();
-    const textOnlySlides = slideCount - slidesWithSvg;
-
-    console.log(
-      `[754d実測] slides=${slideCount} svgTotal=${svgCount} slidesWithSvg=${slidesWithSvg} textOnlySlides=${textOnlySlides}`,
-    );
-
+    // ローカル検証環境はAPIキー未設定のため GeonicDB 認証エラー(console.warn)が
+    // 出る想定内の雑音。console.error のみを判定対象にしているため影響しない。
     expect(consoleErrors, `console errors: ${consoleErrors.join(" | ")}`).toEqual([]);
     expect(failedRequests, `failed requests: ${failedRequests.join(" | ")}`).toEqual([]);
   });
+}
 
-  test("投稿ページ(/talk/ 等)が描画される", async ({ page }) => {
-    // TODO(754d-integration): ashigaru2完成後、実パスへ差し替える。
-    await page.goto("/talk/");
-    await expect(page.locator("#cb-form")).toBeVisible();
+test("投稿ページ(/post/)読込中にconsole error・failed requestが無い", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  const failedRequests: string[] = [];
+  page.on("console", (msg) => {
+    if (msg.type() === "error") consoleErrors.push(msg.text());
   });
+  page.on("requestfailed", (req) => {
+    failedRequests.push(`${req.url()} — ${req.failure()?.errorText}`);
+  });
+
+  await page.goto("/post/", { waitUntil: "load" });
+  await expect(page.locator("#cb-form")).toBeVisible();
+  await page.waitForTimeout(1000);
+
+  expect(consoleErrors, `console errors: ${consoleErrors.join(" | ")}`).toEqual([]);
+  expect(failedRequests, `failed requests: ${failedRequests.join(" | ")}`).toEqual([]);
 });

@@ -7,36 +7,91 @@ import { test, expect } from "@playwright/test";
  * エラーも出さず静かにno-opする設計。目視・「エラー無し」では沈黙no-opを
  * 見抜けない。assertするしかない。
  *
- * ★TODO(754d-integration): 実デッキ着地後、CUEを踏む実操作(クリック/タブ切替)
- * を data-slide 実値・実セレクタで埋めて skip を外す。
+ * ★実装調査済み(2026-08-30 754d統合検証): デッキ側のCUE②④は
+ * クリック/タブ切替ではなく、src/deck/slides.ts の onSlideChange 通知を
+ * src/demos/keynoteMap.ts が購読し、現在スライドの data-slide 値に応じて
+ * #inset-map のモードを自動遷移させる設計(seed=hidden / harvest=full /
+ * それ以外=inset)。よってCUEの検証はページ内クリックではなく
+ * ArrowRight でのスライド送りで行う。フルスクリーン化はCSSクラスでなく
+ * 直接のインラインstyle書き換え(#inset-mapのleft/top/right/bottom/zIndex)
+ * のため `.map-fullscreen` 等のクラスセレクタは存在しない
+ * (旧livedeck由来の想定と異なる・実装調査で確認済み)。
+ *
+ * 投稿ページ「地図を開く」操作(#cb-map-toggle→#cb-map→canvas)は
+ * e2e/post-page.spec.ts で既に実assert済みにつき本specでは扱わない。
  */
-test.describe("DEMO CUE 実行 (沈黙no-op検出)", () => {
-  test.skip(!process.env.E2E_754D_DECK_READY, "index.html scaffold + contribution.ts DOM着地待ち");
 
-  test("CUE②: 会場地図タブでミニマップが実際に描画される", async ({ page }) => {
-    await page.goto("/#/"); // TODO: 実スライドindexへ
-    // contribution.ts の initTabs() が .slide--cb 内 .fb-tab をクリックで切り替える想定。
-    await page.locator(".slide--cb .fb-tab", { hasText: /地図|map/i }).click();
+async function gotoSlide(page: import("@playwright/test").Page, base: string, targetSlug: string) {
+  await page.goto(base + "#1", { waitUntil: "load" });
+  await page.waitForTimeout(1500);
+  for (let i = 0; i < 16; i++) {
+    const slug = await page.locator(".slide.is-active").getAttribute("data-slide");
+    if (slug === targetSlug) return;
+    await page.keyboard.press("ArrowRight");
+    await page.waitForTimeout(700);
+  }
+  throw new Error(`slide "${targetSlug}" に到達できなかった`);
+}
 
-    const mapContainer = page.locator("#cb-map");
-    await expect(mapContainer).toBeVisible();
-    await expect(mapContainer).not.toHaveAttribute("hidden", "");
-    // 沈黙no-op対策の核心: #cb-map の存在だけでなく、maplibre/geoloniaが実際に
-    // canvasを描画したことまでassertする(存在確認だけでは前回の欠陥を再現する)。
-    await expect(mapContainer.locator("canvas")).toBeVisible({ timeout: 10_000 });
+for (const lang of ["en", "ja"] as const) {
+  const base = lang === "en" ? "/" : "/ja/";
+
+  test(`CUE①→②の境界(${lang}): seedスライドでは地図が隠れ、titleスライドで初めてinsetが現れる`, async ({ page }) => {
+    await page.goto(base + "#1", { waitUntil: "load" });
+    await page.waitForTimeout(1500);
+
+    await expect(page.locator(".slide.is-active")).toHaveAttribute("data-slide", "seed");
+    const insetOnSeed = page.locator("#inset-map");
+    // hidden属性の有無だけでなく、実際に非表示(可視でない)ことをassertする。
+    await expect(insetOnSeed).toBeHidden();
+
+    await page.keyboard.press("ArrowRight");
+    await page.waitForTimeout(700);
+    await expect(page.locator(".slide.is-active")).toHaveAttribute("data-slide", "title");
+
+    const insetOnTitle = page.locator("#inset-map");
+    await expect(insetOnTitle).toBeVisible();
+    // 器(#inset-map)が見えるだけでなく、maplibre/geoloniaのcanvasが実際に
+    // マウントされていることをassertする(器だけの沈黙no-op再発防止)。
+    await expect(insetOnTitle.locator("#inset-map-canvas canvas")).toBeVisible({ timeout: 10_000 });
   });
 
-  test("CUE④: 全画面地図に実際に切り替わる", async ({ page }) => {
-    await page.goto("/#/"); // TODO: 実スライドindexへ
-    await page.locator('[data-action="fullscreen-map"]').click(); // TODO: 実セレクタへ
-    await expect(page.locator(".map-fullscreen canvas")).toBeVisible({ timeout: 10_000 });
+  test(`CUE③(${lang}): revealスライドでreveal-jsonが空でなく描画されている`, async ({ page }) => {
+    await gotoSlide(page, base, "reveal");
+    const json = page.locator("#reveal-json");
+    await expect(json).toBeVisible();
+    const text = (await json.textContent())?.trim() ?? "";
+    expect(text.length, "reveal-jsonが空(沈黙no-op)").toBeGreaterThan(0);
+    expect(text, "JSON構造ですらない").toMatch(/"id"\s*:/);
+
+    // ローカル検証環境はAPIキー未設定のため実データ取得は失敗し、静的サンプル
+    // (Seeded example)にフォールバックする。フォールバック自体が正しく機能して
+    // いること(空白のまま固まる沈黙no-opでないこと)をここでは確認する。
+    const tag = page.locator("#reveal-tag");
+    await expect(tag).toBeVisible();
+    const tagText = (await tag.textContent())?.trim() ?? "";
+    expect(tagText.length, "reveal-tagが空").toBeGreaterThan(0);
+    console.log(`[754d CUE③実測 ${lang}] reveal-tag="${tagText}"`);
   });
 
-  test("投稿ページ「地図を開く」操作の後に地図が本当に現れる", async ({ page }) => {
-    await page.goto("/talk/"); // TODO(754d-integration): ashigaru2の実パスへ
-    await page.getByRole("button", { name: /地図を開く|open map/i }).click();
-    const mapContainer = page.locator("#cb-map");
-    await expect(mapContainer).toBeVisible();
-    await expect(mapContainer.locator("canvas")).toBeVisible({ timeout: 10_000 });
+  test(`CUE④(${lang}): harvestスライドで地図が実際にフルスクリーン化する`, async ({ page }) => {
+    await gotoSlide(page, base, "harvest");
+    await page.waitForTimeout(1200); // フルスクリーン遷移アニメ
+
+    const inset = page.locator("#inset-map");
+    await expect(inset).toBeVisible();
+    const canvas = inset.locator("#inset-map-canvas canvas");
+    await expect(canvas).toBeVisible({ timeout: 10_000 });
+
+    const box = await inset.boundingBox();
+    const vp = page.viewportSize();
+    expect(box, "#inset-mapのboundingBoxが取得できない").not.toBeNull();
+    expect(vp, "viewportSizeが取得できない").not.toBeNull();
+    const coversViewport =
+      !!box && !!vp && box.width >= vp.width * 0.9 && box.height >= vp.height * 0.85;
+    expect(
+      coversViewport,
+      `harvestスライドで#inset-mapがビューポートを覆っていない(box=${JSON.stringify(box)} vp=${JSON.stringify(vp)})——CUE④のフルスクリーン化が実際には起きていない疑い`,
+    ).toBe(true);
   });
-});
+}

@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beyond the API — FOSS4G Hiroshima 2026 基調講演</title>
+  <meta name="description" content="FOSS4G Hiroshima 2026 基調講演『Beyond the API — AI時代のデータ連携に要るのは、オープンデータだけでなく、オープンな標準である』(Geolonia) の投影スライド。" />
+  <link rel="canonical" href="https://geolonia.github.io/foss4g-keynote/ja/" />
+  <link rel="icon" type="image/svg+xml" href="../assets/geonic-mark.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <!-- livedeck の意匠をそのまま使う（styles.css 実体コピー・新規 CSS なし） -->
+  <link rel="stylesheet" href="/src/styles/styles.css" />
+  <link rel="prefetch" href="../assets/map-style.json" as="fetch" crossorigin="anonymous" />
+  <link rel="alternate" hreflang="en" href="https://geolonia.github.io/foss4g-keynote/" />
+</head>
+<body>
+<main id="deck" class="deck">
+
+  <!-- SLIDE 1 · Seed — QR全画面 (DEMO CUE ①) -->
+  <section class="slide slide--title" data-bg="title" data-slide="seed">
+    <div class="grid-bg" aria-hidden="true"></div>
+    <div class="slide__inner title__inner">
+      <span class="kicker">まずスマホをお出しください</span>
+      <p class="lead" style="max-width:480px;">質問は二つ。出身はどちらか（都道府県か国名で）、その土地の名物は何か。任意で、地元の隠れ名所も。アカウント不要・アプリ不要。</p>
+    </div>
+    <div class="title__qr">
+      <div class="title__qr-card">
+        <svg style="width:100%;height:100%;" role="img" aria-label="https://geolonia.github.io/foss4g-keynote/post/" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35" shape-rendering="crispEdges"><title>QRコード — 投稿フォーム (geolonia.github.io/foss4g-keynote/post/)</title><path fill="#ffffff" d="M0 0h35v35H0z"/><path stroke="#17171d" d="M1 1.5h7m4 0h2m1 0h1m1 0h1m2 0h3m1 0h1m2 0h7M1 2.5h1m5 0h1m2 0h1m1 0h2m2 0h2m1 0h1m7 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m1 0h5m1 0h1m1 0h1m4 0h3m2 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m1 0h5m5 0h2m2 0h2m2 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h3m3 0h1m1 0h2m2 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m1 0h1m1 0h2m1 0h1m5 0h1m2 0h1m3 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h1m1 0h2m2 0h1m1 0h1m2 0h3m1 0h1M1 9.5h1m1 0h5m3 0h1m1 0h3m2 0h1m1 0h1m2 0h3m1 0h5M2 10.5h3m5 0h1m3 0h2m1 0h6m1 0h1m2 0h2m1 0h2m1 0h1M2 11.5h1m1 0h2m1 0h2m1 0h1m3 0h3m1 0h1m3 0h2m1 0h3m1 0h1m1 0h1M1 12.5h1m6 0h5m1 0h1m2 0h3m1 0h2m3 0h2m1 0h5M2 13.5h2m2 0h3m1 0h1m1 0h1m2 0h3m3 0h1m2 0h3m1 0h3m1 0h1M1 14.5h1m2 0h1m1 0h1m1 0h3m5 0h1m2 0h1m4 0h1m1 0h2m2 0h1m1 0h2M1 15.5h1m2 0h6m1 0h2m1 0h6m1 0h2m2 0h8M2 16.5h3m1 0h1m1 0h2m1 0h1m1 0h1m1 0h2m2 0h1m2 0h2m1 0h3m1 0h3M1 17.5h4m2 0h2m2 0h6m1 0h2m1 0h1m1 0h1m1 0h2m1 0h2m3 0h1M2 18.5h3m1 0h1m2 0h1m1 0h2m1 0h1m2 0h1m1 0h3m2 0h1m2 0h2m1 0h2m1 0h1M3 19.5h1m1 0h3m2 0h8m1 0h1m1 0h1m1 0h1m2 0h1m1 0h2m1 0h2M1 20.5h1m2 0h1m3 0h3m1 0h3m2 0h1m4 0h3m3 0h4M1 21.5h2m3 0h2m1 0h1m3 0h1m5 0h2m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1M1 22.5h2m2 0h2m1 0h1m4 0h6m2 0h2m1 0h1m2 0h1m5 0h1M1 23.5h1m1 0h1m1 0h3m1 0h1m1 0h3m4 0h1m1 0h1m1 0h1m3 0h1m3 0h1m1 0h1M1 24.5h1m1 0h1m1 0h2m1 0h2m2 0h1m1 0h2m1 0h1m1 0h6m1 0h8M1 25.5h1m1 0h2m2 0h2m1 0h1m3 0h1m3 0h1m1 0h1m3 0h6m2 0h2M9 26.5h2m1 0h1m5 0h4m3 0h1m3 0h1m1 0h3M1 27.5h7m2 0h1m3 0h5m2 0h1m1 0h3m1 0h1m1 0h1m1 0h1M1 28.5h1m5 0h1m1 0h2m1 0h4m1 0h5m2 0h2m3 0h5M1 29.5h1m1 0h3m1 0h1m1 0h1m1 0h1m2 0h2m1 0h1m3 0h3m1 0h6M1 30.5h1m1 0h3m1 0h1m1 0h2m1 0h1m2 0h2m1 0h2m4 0h3m2 0h3m1 0h1M1 31.5h1m1 0h3m1 0h1m1 0h1m1 0h2m1 0h1m1 0h2m1 0h1m1 0h1m1 0h3m1 0h2m1 0h2M1 32.5h1m5 0h1m4 0h3m1 0h1m5 0h1m3 0h1m2 0h3M1 33.5h7m1 0h3m1 0h2m1 0h1m1 0h1m4 0h1m1 0h2m1 0h1m1 0h1m1 0h1"/></svg>
+      </div>
+      <p class="title__qr-cap">投稿はその場でエンティティになる。<br><span class="mono">geolonia.github.io/foss4g-keynote/post/</span></p>
+    </div>
+  </section>
+
+  <!-- SLIDE 2 · Title (DEMO CUE ② — ミニマップが右下に出現し、以後常駐) -->
+  <section class="slide slide--title" data-bg="title" data-slide="title">
+    <div class="grid-bg" aria-hidden="true"></div>
+    <div class="slide__inner title__inner">
+      <img class="brand-logo brand-logo--h" src="../assets/geonic-logo-h-dark.svg" alt="GeonicDB" />
+      <h1 class="title__headline">Beyond the API</h1>
+      <p class="title__sub">AI時代のデータ連携に要るのは、オープンデータだけでなく、オープンな標準である。</p>
+      <div class="title__meta">
+        <span class="chip">関 治之 · 株式会社Geolonia</span>
+        <span class="chip">FOSS4G Hiroshima 2026 · 2026-09-03</span>
+      </div>
+    </div>
+    <div class="title__foot mono">Beyond the API</div>
+  </section>
+
+  <!-- SLIDE 3 · オープンデータの10年(圧縮版) -->
+  <section class="slide" data-bg="dark" data-slide="decade">
+    <div class="slide__inner">
+      <span class="kicker">アクセスは解決した。意味はまだだ。</span>
+      <h2 class="slide__title" style="font-size:36px; margin-bottom:14px;">サイロは壊れていない。ライセンスが良くなっただけだ</h2>
+      <svg viewBox="0 0 1120 400" role="img" font-family="'Inter','Noto Sans JP',sans-serif" style="display:block; width:100%; max-width:1020px; height:auto; margin:6px auto 0;"
+        aria-label="三つのオープンデータポータルが、それぞれ独自のフィールド名・日付形式・座標の並びを持ち、エージェントはポータルごとに専用アダプタを書かねばならないことを示す図。">
+        <title>開かれ、ライセンスも整い——それでも三つの別スキーマ。エージェントはその手間をクエリのたびに払う。</title>
+        <defs>
+          <marker id="n1a" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="rgba(252,108,0,.6)"/>
+          </marker>
+        </defs>
+        <g>
+          <rect x="10" y="14" width="340" height="150" rx="12" fill="rgba(255,255,255,.045)" stroke="rgba(251,164,12,.5)" stroke-width="1.4"/>
+          <rect x="10" y="14" width="5" height="150" rx="2.5" fill="#fba40c"/>
+          <text x="32" y="44" font-size="16" font-weight="800" fill="rgba(255,255,255,.92)">ポータル A</text>
+          <text x="338" y="44" text-anchor="end" font-size="11" font-weight="700" fill="rgba(133,214,116,.9)">オープンライセンス ✓</text>
+          <text x="32" y="76" font-size="13" fill="rgba(255,255,255,.75)" font-family="'JetBrains Mono',monospace">"updated_at": "03/09/2026"</text>
+          <text x="32" y="102" font-size="13" fill="rgba(255,255,255,.75)" font-family="'JetBrains Mono',monospace">"pos": [lat, lon]</text>
+          <text x="32" y="128" font-size="13" fill="rgba(255,255,255,.75)" font-family="'JetBrains Mono',monospace">"cap": 120</text>
+        </g>
+        <g>
+          <rect x="390" y="14" width="340" height="150" rx="12" fill="rgba(255,255,255,.045)" stroke="rgba(251,164,12,.5)" stroke-width="1.4"/>
+          <rect x="390" y="14" width="5" height="150" rx="2.5" fill="#fba40c"/>
+          <text x="412" y="44" font-size="16" font-weight="800" fill="rgba(255,255,255,.92)">ポータル B</text>
+          <text x="718" y="44" text-anchor="end" font-size="11" font-weight="700" fill="rgba(133,214,116,.9)">オープンライセンス ✓</text>
+          <text x="412" y="76" font-size="13" fill="rgba(255,255,255,.75)" font-family="'JetBrains Mono',monospace">"modified": 1756857600</text>
+          <text x="412" y="102" font-size="13" fill="rgba(255,255,255,.75)" font-family="'JetBrains Mono',monospace">"coords": [lon, lat]</text>
+          <text x="412" y="128" font-size="13" fill="rgba(255,255,255,.75)" font-family="'JetBrains Mono',monospace">"capacity_max": "120名"</text>
+        </g>
+        <g>
+          <rect x="770" y="14" width="340" height="150" rx="12" fill="rgba(255,255,255,.045)" stroke="rgba(251,164,12,.5)" stroke-width="1.4"/>
+          <rect x="770" y="14" width="5" height="150" rx="2.5" fill="#fba40c"/>
+          <text x="792" y="44" font-size="16" font-weight="800" fill="rgba(255,255,255,.92)">ポータル C</text>
+          <text x="1098" y="44" text-anchor="end" font-size="11" font-weight="700" fill="rgba(133,214,116,.9)">オープンライセンス ✓</text>
+          <text x="792" y="76" font-size="13" fill="rgba(255,255,255,.75)" font-family="'JetBrains Mono',monospace">"last_update": "R8.9.3"</text>
+          <text x="792" y="102" font-size="13" fill="rgba(255,255,255,.75)" font-family="'JetBrains Mono',monospace">"x": 132.4, "y": 34.3</text>
+          <text x="792" y="128" font-size="13" fill="rgba(255,255,255,.75)" font-family="'JetBrains Mono',monospace">"teiin": 120</text>
+        </g>
+        <line x1="180" y1="170" x2="470" y2="268" stroke="rgba(252,108,0,.45)" stroke-width="2" marker-end="url(#n1a)"/>
+        <line x1="560" y1="170" x2="560" y2="268" stroke="rgba(252,108,0,.45)" stroke-width="2" marker-end="url(#n1a)"/>
+        <line x1="940" y1="170" x2="650" y2="268" stroke="rgba(252,108,0,.45)" stroke-width="2" marker-end="url(#n1a)"/>
+        <text x="320" y="225" font-size="12" font-weight="700" fill="rgba(232,64,30,.95)">アダプタ①</text>
+        <text x="572" y="225" font-size="12" font-weight="700" fill="rgba(232,64,30,.95)">アダプタ②</text>
+        <text x="742" y="225" font-size="12" font-weight="700" fill="rgba(232,64,30,.95)">アダプタ③</text>
+        <rect x="400" y="276" width="320" height="72" rx="12" fill="rgba(0,0,0,.4)" stroke="rgba(252,108,0,.55)" stroke-width="1.6"/>
+        <text x="560" y="306" text-anchor="middle" font-size="16" font-weight="800" fill="#fc6c00">AIエージェント</text>
+        <text x="560" y="330" text-anchor="middle" font-size="12.5" fill="rgba(255,255,255,.7)">ポータルごとに専用アダプタを一本——クエリのたびに、永遠に</text>
+        <text x="560" y="384" text-anchor="middle" font-size="14" font-weight="700" fill="rgba(255,255,255,.55)">同じ建物。同じ120人。三つのスキーマ。</text>
+      </svg>
+      <p class="footnote" style="margin-top:12px;">人はこの手間をプロジェクトごとに一度払う。AIエージェントは、クエリのたびに払わされる。ライセンスはバイトを解放したが、意味は誰も解放していない。</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 4 · 四つの曖昧さ(柱a) -->
+  <section class="slide" data-bg="dark" data-slide="meaning-gap">
+    <div class="slide__inner">
+      <span class="kicker">柱 a · 意味論</span>
+      <h2 class="slide__title" style="font-size:34px; margin-bottom:24px;">機械可読であることは、機械解釈可能であることとは違う</h2>
+      <div class="split" style="gap:40px;">
+        <div class="split__text">
+          <ul class="ticks">
+            <li><strong>同一性</strong>——「中央コミュニティセンター」と「中央公民館」は同じ建物か？</li>
+            <li><strong>意味論</strong>——<code>capacity</code>: 設計上の定員か、今そこにいる人数か？</li>
+            <li><strong>単位・慣習</strong>——NGSIv2は緯度・経度。NGSI-LD/GeoJSONは経度・緯度。同じ数字が、正反対の場所を指す。</li>
+            <li><strong>時間</strong>——いつ計測されたか？いつまで有効か？誰が更新したか？</li>
+          </ul>
+        </div>
+        <div class="split__visual">
+          <svg viewBox="0 0 560 300" role="img" font-family="'Inter','Noto Sans JP',sans-serif" style="display:block; width:100%; height:auto;"
+            aria-label="同じ数字の組を二度打点した図: 緯度経度の順なら広島の会場に、経度緯度の順なら外海にピンが落ちる。">
+            <title>[34.39, 132.45]——一方の並びは広島の会場、もう一方は外海。</title>
+            <rect x="1" y="1" width="558" height="252" rx="12" fill="rgba(0,0,0,.4)" stroke="rgba(252,108,0,.35)" stroke-width="1.4"/>
+            <rect x="2" y="2" width="556" height="250" rx="11" fill="rgba(57,120,214,.10)"/>
+            <path d="M210,2 L558,2 L558,150 C480,175 430,140 380,150 C320,162 290,120 250,95 C225,80 215,40 210,2 Z"
+                  fill="rgba(255,255,255,.10)" stroke="rgba(255,255,255,.22)" stroke-width="1.2"/>
+            <text x="470" y="52" font-size="12" font-weight="700" fill="rgba(255,255,255,.5)">陸地</text>
+            <text x="30" y="40" font-size="12" font-weight="700" fill="rgba(107,164,240,.75)">外海</text>
+            <g transform="translate(400,86)">
+              <path d="M0,0 C-9,-16 -9,-26 0,-30 C9,-26 9,-16 0,0 Z" fill="#fc6c00"/>
+              <circle cx="0" cy="-24" r="3.4" fill="#17171d"/>
+            </g>
+            <text x="400" y="112" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fba40c" font-family="'JetBrains Mono',monospace">[34.39, 132.45] · 緯度, 経度</text>
+            <text x="400" y="130" text-anchor="middle" font-size="11.5" fill="rgba(255,255,255,.65)">会場はここ</text>
+            <g transform="translate(130,180)">
+              <path d="M0,0 C-9,-16 -9,-26 0,-30 C9,-26 9,-16 0,0 Z" fill="#e8401e"/>
+              <circle cx="0" cy="-24" r="3.4" fill="#17171d"/>
+            </g>
+            <text x="130" y="206" text-anchor="middle" font-size="12.5" font-weight="700" fill="#e8401e" font-family="'JetBrains Mono',monospace">[132.45, 34.39] · 経度, 緯度</text>
+            <text x="130" y="224" text-anchor="middle" font-size="11.5" fill="rgba(255,255,255,.65)">同じ数字</text>
+            <line x1="382" y1="80" x2="150" y2="160" stroke="rgba(255,255,255,.3)" stroke-width="1.4" stroke-dasharray="5 5"/>
+            <text x="280" y="286" text-anchor="middle" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.75)">同じ項目。同じ数字。正反対の場所。</text>
+          </svg>
+        </div>
+      </div>
+      <p class="footnote" style="margin-top:18px;">人間は何十年もこの手間を静かに引き受けてきた。AIエージェントはこの曖昧さをそのまま受け継ぎ——「これは変だ」とは決して言わない。</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 5 · 種明かし (DEMO CUE ③ — 実際の会場投稿をライブ表示) -->
+  <section class="slide" data-bg="dark" data-slide="reveal" data-live="true">
+    <div class="slide__inner">
+      <span class="kicker">種明かし</span>
+      <h2 class="slide__title" style="font-size:32px; margin-bottom:14px;">スキーマを埋めたのではない。二つの質問に答えただけだ</h2>
+      <svg viewBox="0 0 1120 300" role="img" font-family="'Inter','Noto Sans JP',sans-serif" style="display:block; width:100%; max-width:920px; height:auto; margin:0 auto;"
+        aria-label="二つの質問に答えるスマホのフォームが、データモデルの検証を通って型付きNGSI-LDエンティティになる流れ。モデル外の項目は検証の門で拒否される。">
+        <title>答えは二つ、出てくるのは検証済みNGSI-LDエンティティ一つ——公開データモデルの外にあるものは拒否される。</title>
+        <defs>
+          <marker id="n7a" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="rgba(252,108,0,.6)"/>
+          </marker>
+        </defs>
+        <rect x="20" y="20" width="240" height="240" rx="18" fill="rgba(0,0,0,.45)" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/>
+        <rect x="105" y="32" width="70" height="6" rx="3" fill="rgba(255,255,255,.2)"/>
+        <text x="140" y="72" text-anchor="middle" font-size="13" font-weight="700" fill="rgba(255,255,255,.85)">ご出身は？</text>
+        <rect x="44" y="84" width="192" height="32" rx="7" fill="rgba(255,255,255,.08)" stroke="rgba(251,164,12,.45)" stroke-width="1.2"/>
+        <text x="56" y="105" font-size="12.5" fill="#fba40c" font-family="'JetBrains Mono',monospace">香川県</text>
+        <text x="140" y="146" text-anchor="middle" font-size="13" font-weight="700" fill="rgba(255,255,255,.85)">その土地の名物は？</text>
+        <rect x="44" y="158" width="192" height="32" rx="7" fill="rgba(255,255,255,.08)" stroke="rgba(251,164,12,.45)" stroke-width="1.2"/>
+        <text x="56" y="179" font-size="12.5" fill="#fba40c" font-family="'JetBrains Mono',monospace">讃岐うどん</text>
+        <text x="140" y="222" text-anchor="middle" font-size="11.5" fill="rgba(255,255,255,.5)">アカウント不要・アプリ不要</text>
+        <line x1="270" y1="140" x2="330" y2="140" stroke="rgba(252,108,0,.5)" stroke-width="2" marker-end="url(#n7a)"/>
+        <rect x="340" y="70" width="230" height="140" rx="14" fill="rgba(252,108,0,.10)" stroke="#fc6c00" stroke-width="1.8"/>
+        <text x="455" y="104" text-anchor="middle" font-size="14.5" font-weight="800" fill="#fc6c00">カスタムデータモデル</text>
+        <text x="455" y="126" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.7)">公開済み・型付き・共有</text>
+        <text x="455" y="158" text-anchor="middle" font-size="13" font-weight="700" fill="#85d674">モデルの内側 → 受理 ✓</text>
+        <text x="455" y="182" text-anchor="middle" font-size="13" font-weight="700" fill="#e8401e">外側 → 拒否 ✕</text>
+        <line x1="580" y1="140" x2="640" y2="140" stroke="rgba(252,108,0,.5)" stroke-width="2" marker-end="url(#n7a)"/>
+        <rect x="650" y="30" width="450" height="220" rx="14" fill="rgba(0,0,0,.5)" stroke="rgba(251,164,12,.5)" stroke-width="1.4"/>
+        <g font-family="'JetBrains Mono',monospace" font-size="11.5">
+          <text x="674" y="62" fill="rgba(255,255,255,.55)">{</text>
+          <text x="690" y="86" fill="rgba(255,255,255,.75)">"id": <tspan fill="#fba40c">"urn:ngsi-ld:Contribution:…"</tspan>,</text>
+          <text x="690" y="110" fill="rgba(255,255,255,.75)">"type": <tspan fill="#fba40c">"Contribution"</tspan>,</text>
+          <text x="690" y="134" fill="rgba(255,255,255,.75)">"origin": { "type": <tspan fill="#fc6c00">"Property"</tspan>, "value": "香川県" },</text>
+          <text x="690" y="158" fill="rgba(255,255,255,.75)">"specialty": { "type": <tspan fill="#fc6c00">"Property"</tspan>, "value": "讃岐うどん" },</text>
+          <text x="690" y="182" fill="rgba(255,255,255,.75)">"submittedAt": { "type": <tspan fill="#fc6c00">"Property"</tspan>, "value": "…" }</text>
+          <text x="674" y="206" fill="rgba(255,255,255,.55)">}</text>
+        </g>
+        <text x="875" y="238" text-anchor="middle" font-size="12" font-weight="700" fill="rgba(255,255,255,.6)">恒久ID · 型付きProperty · 作りからして相互運用可能</text>
+        <text x="560" y="290" text-anchor="middle" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.7)">スキーマを埋めたのではない。プラットフォームが構造を強制した。</text>
+      </svg>
+      <div style="display:flex; align-items:baseline; gap:12px; max-width:920px; margin:14px auto 0;">
+        <span id="reveal-tag" class="chip">仕込みサンプル</span>
+        <span class="footnote" style="margin:0;">登壇当日はここが会場の実投稿一件のライブ表示になる。真偽値の<code>seeded</code>フラグが、仕込み例と実投稿とを区別する。</span>
+      </div>
+      <pre id="reveal-json" class="fb-json" style="max-width:920px; margin:8px auto 0; max-height:170px;">{
+  "id": "urn:ngsi-ld:Contribution:seed-01",
+  "type": "Contribution",
+  "origin": { "type": "Property", "value": "香川県" },
+  "specialty": { "type": "Property", "value": "讃岐うどん" },
+  "seeded": { "type": "Property", "value": true },
+  "submittedAt": { "type": "Property", "value": "2026-09-03T09:58:00.000Z" }
+}</pre>
+    </div>
+  </section>
+
+  <!-- SLIDE 6 · 反論を、最も強い形で -->
+  <section class="slide" data-bg="dark" data-slide="objection">
+    <div class="slide__inner">
+      <span class="kicker">柱 a · 想定される反論</span>
+      <h2 class="slide__title" style="font-size:36px; margin-bottom:16px;">「AIが賢くなれば、勝手に解決するのでは？」</h2>
+      <p class="lead" style="margin-bottom:10px;">賢いモデルほど、曖昧なデータでの失敗が減るわけではない。<em>より上手く</em>失敗する——間違いがより正しく見え、レビューを生き延びる。</p>
+      <svg viewBox="0 0 1120 280" role="img" font-family="'Inter','Noto Sans JP',sans-serif" style="display:block; width:100%; max-width:1000px; height:auto; margin:8px auto 0;"
+        aria-label="1994年のrobots.txtからサイトマップ・schema.org・OpenAPI・function calling・llms.txtを経て2024年のMCPへ至る右肩上がりの年表。どの一歩も機械のための構造を足しており、減らした一歩はない。">
+        <title>三十年間、同じ一手の繰り返し: 機械が賢くなるたび、構造は「増えて」きた。減ったことはない。</title>
+        <defs>
+          <marker id="n4a" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 Z" fill="#fc6c00"/>
+          </marker>
+        </defs>
+        <line x1="40" y1="228" x2="1064" y2="72" stroke="rgba(252,108,0,.55)" stroke-width="2.4" marker-end="url(#n4a)"/>
+        <text x="1064" y="46" text-anchor="end" font-size="13.5" font-weight="800" fill="#fc6c00">構造は増える一方 →</text>
+        <g text-anchor="middle">
+          <g transform="translate(90,228)">
+            <circle r="7" fill="#17171d" stroke="#fba40c" stroke-width="2.2"/>
+            <text y="30" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.9)" font-family="'JetBrains Mono',monospace">robots.txt</text>
+            <text y="48" font-size="11.5" fill="rgba(255,255,255,.5)">1994</text>
+          </g>
+          <g transform="translate(245,205)">
+            <circle r="7" fill="#17171d" stroke="#fba40c" stroke-width="2.2"/>
+            <text y="30" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.9)" font-family="'JetBrains Mono',monospace">sitemaps</text>
+            <text y="48" font-size="11.5" fill="rgba(255,255,255,.5)">2005</text>
+          </g>
+          <g transform="translate(400,181)">
+            <circle r="7" fill="#17171d" stroke="#fba40c" stroke-width="2.2"/>
+            <text y="30" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.9)" font-family="'JetBrains Mono',monospace">schema.org</text>
+            <text y="48" font-size="11.5" fill="rgba(255,255,255,.5)">2011</text>
+          </g>
+          <g transform="translate(555,158)">
+            <circle r="7" fill="#17171d" stroke="#fba40c" stroke-width="2.2"/>
+            <text y="30" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.9)" font-family="'JetBrains Mono',monospace">OpenAPI</text>
+            <text y="48" font-size="11.5" fill="rgba(255,255,255,.5)">2015</text>
+          </g>
+          <g transform="translate(710,134)">
+            <circle r="7" fill="#17171d" stroke="#fba40c" stroke-width="2.2"/>
+            <text y="30" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.9)" font-family="'JetBrains Mono',monospace">function calling</text>
+            <text y="48" font-size="11.5" fill="rgba(255,255,255,.5)">2023</text>
+          </g>
+          <g transform="translate(875,110)">
+            <circle r="7" fill="#17171d" stroke="#fba40c" stroke-width="2.2"/>
+            <text y="30" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.9)" font-family="'JetBrains Mono',monospace">llms.txt</text>
+            <text y="48" font-size="11.5" fill="rgba(255,255,255,.5)">2024</text>
+          </g>
+          <g transform="translate(1010,89)">
+            <circle r="8" fill="#fc6c00" stroke="#fc6c00" stroke-width="2.2"/>
+            <text y="30" font-size="14.5" font-weight="800" fill="#fc6c00" font-family="'JetBrains Mono',monospace">MCP</text>
+            <text y="48" font-size="11.5" fill="rgba(255,255,255,.5)">2024</text>
+          </g>
+        </g>
+        <text x="560" y="268" text-anchor="middle" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.6)">どの一歩も、機械が動けるよう人間が構造を足してきた。逆は一度もない。</text>
+      </svg>
+      <p class="footnote" style="margin-top:10px;">「賢いエージェントほど、意味は要らなくなるのではない。より速く、より多くの意味を、より高い賭け金で消費するのだ。」</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 7 · 実測の三点(🎙️ 登壇者の実話はこのスライドの上で) -->
+  <section class="slide" data-bg="dark" data-slide="facts">
+    <div class="slide__inner">
+      <span class="kicker">柱 a · 実測であり、誇張なし</span>
+      <h2 class="slide__title" style="font-size:36px; margin-bottom:12px;">実際に起きたこと——実測の三点</h2>
+      <p class="callout" style="margin-top:0; text-align:left;">① AIが実在しない文字エンコーディング名を書いた——二回連続で（<code>'shift-jis'</code>、次に<code>'shiftjis'</code>）。どちらももっともらしく見え、どちらも動かなかった。</p>
+      <svg viewBox="0 0 1120 320" role="img" font-family="'Inter','Noto Sans JP',sans-serif" style="display:block; width:100%; max-width:1000px; height:auto; margin:10px auto 0;"
+        aria-label="変換スクリプトは終了コード0で完走し「完了」と報告したが、できあがった表では588行すべてで一つの列がnullになっている。">
+        <title>「動いた」は「正しい」ではない: exit 0・報告は「完了」——588件全てで一つの項目がnull。</title>
+        <defs>
+          <marker id="n3a" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="rgba(252,108,0,.6)"/>
+          </marker>
+          <pattern id="n3hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="7" height="7" fill="rgba(207,54,32,.16)"/>
+            <line x1="0" y1="0" x2="0" y2="7" stroke="rgba(232,64,30,.55)" stroke-width="1.6"/>
+          </pattern>
+        </defs>
+        <rect x="10" y="30" width="380" height="220" rx="12" fill="rgba(0,0,0,.5)" stroke="rgba(255,255,255,.14)" stroke-width="1.4"/>
+        <circle cx="34" cy="52" r="5" fill="#e8401e"/><circle cx="52" cy="52" r="5" fill="#fba40c"/><circle cx="70" cy="52" r="5" fill="#85d674"/>
+        <g font-family="'JetBrains Mono',monospace" font-size="13.5">
+          <text x="32" y="92" fill="rgba(255,255,255,.85)">$ python convert.py</text>
+          <text x="32" y="120" fill="rgba(255,255,255,.6)">processing 588 records…</text>
+          <text x="32" y="148" fill="#85d674">done. 588/588 converted.</text>
+          <text x="32" y="176" fill="#85d674">exit code: 0 ✓</text>
+          <text x="32" y="216" fill="rgba(255,255,255,.85)">報告: <tspan fill="#85d674" font-weight="700">「完了」</tspan></text>
+        </g>
+        <line x1="398" y1="140" x2="452" y2="140" stroke="rgba(252,108,0,.5)" stroke-width="2" marker-end="url(#n3a)"/>
+        <rect x="460" y="30" width="650" height="220" rx="12" fill="rgba(255,255,255,.045)" stroke="rgba(252,108,0,.35)" stroke-width="1.4"/>
+        <g font-size="12.5" font-weight="700" fill="rgba(255,255,255,.6)">
+          <text x="484" y="60">id</text>
+          <text x="574" y="60">名称</text>
+          <text x="764" y="60">所在地</text>
+          <text x="1005" y="60" text-anchor="middle" fill="#e8401e">定員</text>
+        </g>
+        <line x1="472" y1="70" x2="1098" y2="70" stroke="rgba(255,255,255,.15)" stroke-width="1.2"/>
+        <rect x="940" y="72" width="130" height="146" fill="url(#n3hatch)" stroke="rgba(232,64,30,.6)" stroke-width="1.4" rx="4"/>
+        <g font-size="12" fill="rgba(255,255,255,.72)">
+          <text x="484" y="94" font-family="'JetBrains Mono',monospace">0001</text><text x="574" y="94">中央公民館</text><text x="764" y="94">中区1-2-3…</text>
+          <text x="484" y="122" font-family="'JetBrains Mono',monospace">0002</text><text x="574" y="122">南体育館</text><text x="764" y="122">南区4-5-6…</text>
+          <text x="484" y="150" font-family="'JetBrains Mono',monospace">0003</text><text x="574" y="150">東小学校</text><text x="764" y="150">東区7-8-9…</text>
+          <text x="484" y="178" font-family="'JetBrains Mono',monospace">0004</text><text x="574" y="178">西会館</text><text x="764" y="178">西区2-4-6…</text>
+          <text x="560" y="208" fill="rgba(255,255,255,.45)">⋮  ×588行</text>
+        </g>
+        <g font-family="'JetBrains Mono',monospace" font-size="12.5" font-weight="700" fill="#e8401e" text-anchor="middle">
+          <text x="1005" y="94">null</text>
+          <text x="1005" y="122">null</text>
+          <text x="1005" y="150">null</text>
+          <text x="1005" y="178">null</text>
+          <text x="1005" y="208">×588</text>
+        </g>
+        <text x="560" y="296" text-anchor="middle" font-size="15" font-weight="800" fill="rgba(255,255,255,.85)">③ 「動いた」は「正しい」を意味しない。</text>
+      </svg>
+      <div class="demo-note" style="max-width:1000px; margin:10px auto 0;"><span class="demo-note__dot"></span>🎙️ 登壇者ご自身の体験談——目安60〜90秒・意図的に台本なし（登壇スクリプト参照）。</div>
+    </div>
+  </section>
+
+  <!-- SLIDE 8 · 賭けた先: NGSI-LD——正直な一枚の図(柱b) -->
+  <section class="slide" data-bg="dark" data-slide="bet">
+    <div class="slide__inner">
+      <span class="kicker">柱 b · 賭けた先</span>
+      <h2 class="slide__title" style="font-size:34px; margin-bottom:24px;">私たちはNGSI-LD（ETSI GS CIM 009）という標準に賭けた</h2>
+      <div class="split" style="gap:44px;">
+        <div class="split__text">
+          <ul class="ticks">
+            <li><strong>エンティティ</strong>——安定したIDを持つ「もの」。</li>
+            <li><strong>プロパティ</strong>——その名前、その定員。</li>
+            <li><strong>リレーションシップ</strong>——推測ではなく、エージェントがたどれるリンク。</li>
+            <li><strong>GeoProperty / @context</strong>——位置・時間・共有語彙が、標準に組み込まれている。</li>
+          </ul>
+          <p class="footnote" style="margin-top:16px;">意味はデータモデルに宿る。各APIの説明書には宿らない。それがこの標準の要点だ。</p>
+        </div>
+        <div class="split__visual">
+          <svg class="ld-svg" viewBox="0 0 560 362" role="img"
+               aria-label="避難所（施設台帳）と水位計（河川センサー）が、どちらも「つながり」で同じ○○地区という「もの」を指しているため、別部署のデータどうしがつながることを示す図">
+            <title>別部署のデータが、同じ「もの」を指すことでつながる</title>
+            <defs>
+              <marker id="ld-arrow" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="#fc6c00" />
+              </marker>
+            </defs>
+            <rect x="1" y="1" width="260" height="178" rx="12" fill="rgba(0,0,0,.4)" stroke="rgba(252,108,0,.35)" stroke-width="1.4" />
+            <g transform="translate(15,11)" stroke="#fba40c" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-linecap="round">
+              <path d="M2 11 L12 4 L22 11" /><path d="M4 11 V23 H20 V11" /><path d="M9.5 23 V16 H14.5 V23" />
+            </g>
+            <text x="46" y="24" class="ld-svg__type">もの：避難所</text>
+            <text x="46" y="41" class="ld-svg__id">urn:ngsi-ld:EvacuationArea:001</text>
+            <line x1="15" y1="55" x2="246" y2="55" stroke="rgba(255,255,255,.12)" stroke-width="1" />
+            <text x="15" y="79" class="ld-svg__key">名称</text>
+            <rect x="70" y="68" width="24" height="16" rx="8" fill="none" stroke="#fba40c" /><text x="82" y="79" class="ld-svg__chip" fill="#fba40c" text-anchor="middle">値</text>
+            <text x="102" y="79" class="ld-svg__val">△△小学校</text>
+            <text x="15" y="107" class="ld-svg__key">収容人数</text>
+            <rect x="70" y="96" width="24" height="16" rx="8" fill="none" stroke="#fba40c" /><text x="82" y="107" class="ld-svg__chip" fill="#fba40c" text-anchor="middle">値</text>
+            <text x="102" y="107" class="ld-svg__val">420 人</text>
+            <text x="15" y="135" class="ld-svg__key">場所</text>
+            <rect x="70" y="124" width="34" height="16" rx="8" fill="none" stroke="#5fd39b" /><text x="87" y="135" class="ld-svg__chip" fill="#5fd39b" text-anchor="middle">場所</text>
+            <text x="112" y="135" class="ld-svg__val">34.3401, 134.0434</text>
+            <text x="15" y="163" class="ld-svg__key">所在地区</text>
+            <rect x="70" y="152" width="52" height="16" rx="8" fill="none" stroke="#fc6c00" /><text x="96" y="163" class="ld-svg__chip" fill="#fc6c00" text-anchor="middle">つながり</text>
+            <rect x="299" y="1" width="260" height="122" rx="12" fill="rgba(0,0,0,.4)" stroke="rgba(252,108,0,.35)" stroke-width="1.4" />
+            <g transform="translate(313,11)" stroke="#fba40c" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-linecap="round">
+              <path d="M8 2 V16" /><path d="M8 5 H13 M8 9 H13 M8 13 H13" />
+              <path d="M1 20 q5 -3.5 10 0 t10 0" /><path d="M1 25 q5 -3.5 10 0 t10 0" />
+            </g>
+            <text x="344" y="24" class="ld-svg__type">もの：水位計</text>
+            <text x="344" y="41" class="ld-svg__id">urn:ngsi-ld:Device:water-001</text>
+            <line x1="313" y1="55" x2="544" y2="55" stroke="rgba(255,255,255,.12)" stroke-width="1" />
+            <text x="313" y="79" class="ld-svg__key">水位</text>
+            <rect x="368" y="68" width="24" height="16" rx="8" fill="none" stroke="#fba40c" /><text x="380" y="79" class="ld-svg__chip" fill="#fba40c" text-anchor="middle">値</text>
+            <text x="400" y="79" class="ld-svg__val">3.2 m</text>
+            <text x="443" y="79" class="ld-svg__when">09:00 時点</text>
+            <text x="313" y="107" class="ld-svg__key">監視区域</text>
+            <rect x="368" y="96" width="52" height="16" rx="8" fill="none" stroke="#fc6c00" /><text x="394" y="107" class="ld-svg__chip" fill="#fc6c00" text-anchor="middle">つながり</text>
+            <path d="M96 172 C96 196 128 202 172 226" fill="none" stroke="#fc6c00" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ld-arrow)" />
+            <path d="M394 116 C394 176 398 202 360 226" fill="none" stroke="#fc6c00" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ld-arrow)" />
+            <text x="266" y="196" class="ld-svg__edge" text-anchor="middle">別部署のデータが</text>
+            <text x="266" y="214" class="ld-svg__edge" text-anchor="middle">同じ「もの」を指す</text>
+            <rect x="150" y="237" width="260" height="122" rx="12" fill="rgba(0,0,0,.4)" stroke="rgba(252,108,0,.55)" stroke-width="1.6" />
+            <g transform="translate(164,247)" stroke="#fba40c" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-linecap="round">
+              <path d="M3 8 L12 4 L21 9 L19 21 L6 20 Z" /><path d="M12 4 V13" /><path d="M19 9 L12 13" />
+            </g>
+            <text x="195" y="260" class="ld-svg__type">もの：○○地区</text>
+            <text x="164" y="277" class="ld-svg__id">urn:ngsi-ld:AdministrativeArea:37201</text>
+            <line x1="164" y1="291" x2="395" y2="291" stroke="rgba(255,255,255,.12)" stroke-width="1" />
+            <text x="164" y="315" class="ld-svg__key">名称</text>
+            <rect x="219" y="304" width="24" height="16" rx="8" fill="none" stroke="#fba40c" /><text x="231" y="315" class="ld-svg__chip" fill="#fba40c" text-anchor="middle">値</text>
+            <text x="251" y="315" class="ld-svg__val">○○地区</text>
+            <text x="164" y="343" class="ld-svg__key">人口</text>
+            <rect x="219" y="332" width="24" height="16" rx="8" fill="none" stroke="#fba40c" /><text x="231" y="343" class="ld-svg__chip" fill="#fba40c" text-anchor="middle">値</text>
+            <text x="251" y="343" class="ld-svg__val">12,480 人</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 9 · 譲れなかった四つの要件 -->
+  <section class="slide" data-bg="dark" data-slide="requirements">
+    <div class="slide__inner">
+      <span class="kicker">柱 b · なぜOrion-LDをそのまま使わなかったか</span>
+      <h2 class="slide__title" style="font-size:36px; margin-bottom:16px;">譲れなかった四つの要件</h2>
+      <ul class="ticks" style="columns:2; column-gap:48px; max-width:1060px;">
+        <li><strong>フルマネージド・サーバーレス。</strong>自治体が自前でブローカーを24時間運用すべきではない。</li>
+        <li><strong>1エンジンで2プロトコル。</strong>NGSIv2（レガシー）とNGSI-LD（将来）を、同じデータの上で。</li>
+        <li><strong>エージェントを一級市民として。</strong>ブローカー自体にMCPを、最初のコミットから。</li>
+        <li><strong>セキュリティは内蔵、後付けではない。</strong>単一のポリシー層、送信者に紐づくトークン。</li>
+      </ul>
+      <svg class="stack-chart" viewBox="0 0 1120 282" role="img" style="max-width:940px; margin:10px auto 0;"
+           aria-label="従来の Web アプリケーションに必要だった構成要素を、上からフロントエンド・Web サーバー（API 公開）・アプリケーション実装・データベースの 4 段で示した図。最上段のフロントエンドは静的ホスティングサービスに置くだけで済み、それより下のすべてを GeonicDB が提供する">
+        <title>従来は一式を自前で用意していた。API の公開から下はすべて GeonicDB が提供する</title>
+        <rect x="1" y="1" width="810" height="62" rx="9" fill="rgba(255,255,255,.045)" stroke="rgba(251,164,12,.55)" stroke-width="1.4" />
+        <rect x="1" y="1" width="5" height="62" rx="2.5" fill="#fba40c" />
+        <text x="22" y="38" class="stack-chart__name">フロントエンド<tspan class="stack-chart__sub" dx="12">静的ホスティングサービスに置くだけ</tspan></text>
+        <text x="788" y="38" class="stack-chart__tech" text-anchor="end">HTML・CSS・JavaScript</text>
+        <rect x="1" y="73" width="810" height="62" rx="9" fill="rgba(252,108,0,.09)" stroke="rgba(252,108,0,.35)" stroke-width="1.4" />
+        <rect x="1" y="73" width="5" height="62" rx="2.5" fill="#fc6c00" />
+        <text x="22" y="110" class="stack-chart__name">Web サーバー（API の公開）<tspan class="stack-chart__sub" dx="12">TLS 証明書・アクセス制御・脆弱性対応</tspan></text>
+        <text x="788" y="110" class="stack-chart__tech" text-anchor="end">Apache・Nginx</text>
+        <rect x="1" y="145" width="810" height="62" rx="9" fill="rgba(252,108,0,.09)" stroke="rgba(252,108,0,.35)" stroke-width="1.4" />
+        <rect x="1" y="145" width="5" height="62" rx="2.5" fill="#fc6c00" />
+        <text x="22" y="182" class="stack-chart__name">アプリケーション実装<tspan class="stack-chart__sub" dx="12">認証認可・入力検証・リアルタイム配信</tspan></text>
+        <text x="788" y="182" class="stack-chart__tech" text-anchor="end">PHP・Python・Node.js</text>
+        <rect x="1" y="217" width="810" height="62" rx="9" fill="rgba(252,108,0,.09)" stroke="rgba(252,108,0,.35)" stroke-width="1.4" />
+        <rect x="1" y="217" width="5" height="62" rx="2.5" fill="#fc6c00" />
+        <text x="22" y="254" class="stack-chart__name">データベース<tspan class="stack-chart__sub" dx="12">設計・冗長化・バックアップ・容量拡張</tspan></text>
+        <text x="788" y="254" class="stack-chart__tech" text-anchor="end">MySQL・PostgreSQL</text>
+        <path d="M838 76 H828 V276 H838" fill="none" stroke="#fc6c00" stroke-width="2" stroke-linejoin="round" />
+        <image href="../assets/geonic-mark.svg" x="914" y="112" width="130" height="89.9" aria-hidden="true" />
+        <text x="979" y="236" class="stack-chart__label" fill="#fff" text-anchor="middle">GeonicDB が提供</text>
+      </svg>
+      <p class="footnote" style="margin-top:10px;">これは<em>私たちの</em>要件として述べている——上流プロジェクトへの批判ではない。この四つが、標準をゼロから再実装するという不快な決断を強いた。</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 10 · GeonicDBを一枚で(製品デッキの全面イラストを流用) -->
+  <section class="slide slide--illus" data-bg="illus" data-slide="geonicdb-onepage">
+    <svg class="illus-img illus-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800"
+         role="img" aria-label="GeonicDBを一枚で——左の街のデータ源がGeonicDBへ流れ込み、標準がすべての書き込みを検証して保存し、アプリにはAPI、エージェントにはMCPで届ける。">
+      <title>GeonicDBを、一枚で——書き込み（標準がその場で検証）→ 保存 → アプリ向けAPI・エージェント向けMCP</title>
+      <defs>
+        <linearGradient id="hubGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#FF6A2B"/>
+          <stop offset="1" stop-color="#E8412F"/>
+        </linearGradient>
+        <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#FFFDF8"/>
+          <stop offset="1" stop-color="#FBF4E7"/>
+        </linearGradient>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L7,3 L0,6 Z" fill="#B79B73"/>
+        </marker>
+        <marker id="arrowO" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L7,3 L0,6 Z" fill="#FF540D"/>
+        </marker>
+        <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#9C7A45" flood-opacity="0.18"/>
+        </filter>
+      </defs>
+
+      <rect width="1280" height="800" fill="url(#bgGrad)"/>
+
+      <text x="640" y="58" text-anchor="middle" font-size="48.89" font-weight="800" fill="#2A2A2A">GeonicDBを、一枚で</text>
+      <text x="640" y="92" text-anchor="middle" font-size="18" fill="#7A6A4F">— 書き込み（標準がその場で検証）→ 保存 → 読み出し —</text>
+
+      <text x="180" y="150" text-anchor="middle" font-size="17" font-weight="700" fill="#5C5142">街のさまざまなデータ</text>
+      <text x="180" y="172" text-anchor="middle" font-size="13" fill="#9A8A6E">形式やルールがバラバラ</text>
+
+      <text x="640" y="150" text-anchor="middle" font-size="17" font-weight="700" fill="#E8412F">GeonicDB</text>
+      <text x="640" y="172" text-anchor="middle" font-size="13" fill="#C77A45">すべての書き込みを標準が検証</text>
+
+      <text x="1100" y="150" text-anchor="middle" font-size="17" font-weight="700" fill="#5C5142">アプリとエージェント</text>
+      <text x="1100" y="172" text-anchor="middle" font-size="13" fill="#9A8A6E">同じ形でかんたんに利用</text>
+
+      <g stroke-width="3" fill="none">
+        <line x1="312" y1="227" x2="462" y2="240" stroke="#C9B492" marker-end="url(#arrow)"/>
+        <line x1="312" y1="337" x2="462" y2="345" stroke="#C9B492" marker-end="url(#arrow)"/>
+        <line x1="312" y1="447" x2="462" y2="440" stroke="#C9B492" marker-end="url(#arrow)"/>
+        <line x1="312" y1="557" x2="462" y2="540" stroke="#C9B492" marker-end="url(#arrow)"/>
+        <line x1="818" y1="240" x2="968" y2="227" stroke="#FF8A5C" marker-end="url(#arrowO)"/>
+        <line x1="818" y1="345" x2="968" y2="337" stroke="#FF8A5C" marker-end="url(#arrowO)"/>
+        <line x1="818" y1="440" x2="968" y2="447" stroke="#FF8A5C" marker-end="url(#arrowO)"/>
+        <line x1="818" y1="540" x2="968" y2="557" stroke="#FF8A5C" marker-end="url(#arrowO)"/>
+      </g>
+
+      <g>
+        <circle r="4" fill="#4F9DDE"><animateMotion dur="1.9s" repeatCount="indefinite" path="M312,227 L462,240"/><animate attributeName="r" values="2.5;5;2.5" dur="1.9s" repeatCount="indefinite"/></circle>
+        <circle r="4" fill="#5BB98C"><animateMotion dur="1.9s" begin="-0.3s" repeatCount="indefinite" path="M312,337 L462,345"/><animate attributeName="r" values="2.5;5;2.5" dur="1.9s" begin="-0.3s" repeatCount="indefinite"/></circle>
+        <circle r="4" fill="#D2A33F"><animateMotion dur="1.9s" begin="-0.6s" repeatCount="indefinite" path="M312,447 L462,440"/><animate attributeName="r" values="2.5;5;2.5" dur="1.9s" begin="-0.6s" repeatCount="indefinite"/></circle>
+        <circle r="4" fill="#A06FD0"><animateMotion dur="1.9s" begin="-0.15s" repeatCount="indefinite" path="M312,557 L462,540"/><animate attributeName="r" values="2.5;5;2.5" dur="1.9s" begin="-0.15s" repeatCount="indefinite"/></circle>
+        <circle r="4" fill="#FF6A2B"><animateMotion dur="1.9s" begin="-0.2s" repeatCount="indefinite" path="M818,240 L968,227"/><animate attributeName="r" values="2.5;5.5;2.5" dur="1.9s" begin="-0.2s" repeatCount="indefinite"/></circle>
+        <circle r="4" fill="#FF6A2B"><animateMotion dur="1.9s" begin="-0.5s" repeatCount="indefinite" path="M818,345 L968,337"/><animate attributeName="r" values="2.5;5.5;2.5" dur="1.9s" begin="-0.5s" repeatCount="indefinite"/></circle>
+        <circle r="4" fill="#FF6A2B"><animateMotion dur="1.9s" begin="-0.8s" repeatCount="indefinite" path="M818,440 L968,447"/><animate attributeName="r" values="2.5;5.5;2.5" dur="1.9s" begin="-0.8s" repeatCount="indefinite"/></circle>
+        <circle r="4" fill="#FF6A2B"><animateMotion dur="1.9s" begin="-0.35s" repeatCount="indefinite" path="M818,540 L968,557"/><animate attributeName="r" values="2.5;5.5;2.5" dur="1.9s" begin="-0.35s" repeatCount="indefinite"/></circle>
+      </g>
+
+      <g filter="url(#soft)"><rect x="50" y="185" width="260" height="85" rx="14" fill="#FFFFFF" stroke="#E6F4F2" stroke-width="2"/></g>
+      <circle cx="92" cy="227" r="22" fill="#3AA8A0"/>
+      <rect x="89" y="215" width="6" height="16" rx="3" fill="#fff"/>
+      <circle cx="92" cy="234" r="6" fill="#fff"/>
+      <text x="128" y="222" font-size="18" font-weight="700" fill="#2A2A2A">センサー</text>
+      <text x="128" y="246" font-size="13" fill="#7A6A4F">気温・降雨・水位 など</text>
+
+      <g filter="url(#soft)"><rect x="50" y="295" width="260" height="85" rx="14" fill="#FFFFFF" stroke="#E9ECF9" stroke-width="2"/></g>
+      <circle cx="92" cy="337" r="22" fill="#5B6BC0"/>
+      <ellipse cx="92" cy="327" rx="11" ry="4.5" fill="#fff"/>
+      <path d="M81,327 v18 a11,4.5 0 0 0 22,0 v-18" fill="none" stroke="#fff" stroke-width="2.5"/>
+      <ellipse cx="92" cy="336" rx="11" ry="4.5" fill="none" stroke="#fff" stroke-width="2"/>
+      <text x="128" y="332" font-size="18" font-weight="700" fill="#2A2A2A">業務システム</text>
+      <text x="128" y="356" font-size="13" fill="#7A6A4F">住民・施設・税 など</text>
+
+      <g filter="url(#soft)"><rect x="50" y="405" width="260" height="85" rx="14" fill="#FFFFFF" stroke="#FBF1DD" stroke-width="2"/></g>
+      <circle cx="92" cy="447" r="22" fill="#E0A732"/>
+      <rect x="83" y="436" width="18" height="22" rx="3" fill="#fff"/>
+      <line x1="87" y1="442" x2="97" y2="442" stroke="#E0A732" stroke-width="2"/>
+      <line x1="87" y1="447" x2="97" y2="447" stroke="#E0A732" stroke-width="2"/>
+      <line x1="87" y1="452" x2="94" y2="452" stroke="#E0A732" stroke-width="2"/>
+      <text x="128" y="442" font-size="18" font-weight="700" fill="#2A2A2A">オープンデータ</text>
+      <text x="128" y="466" font-size="13" fill="#7A6A4F">公開された統計 など</text>
+
+      <g filter="url(#soft)"><rect x="50" y="515" width="260" height="85" rx="14" fill="#FFFFFF" stroke="#FAE7E9" stroke-width="2"/></g>
+      <circle cx="92" cy="557" r="22" fill="#D9646E"/>
+      <rect x="80" y="550" width="24" height="16" rx="3" fill="#fff"/>
+      <rect x="86" y="546" width="8" height="5" rx="1.5" fill="#fff"/>
+      <circle cx="92" cy="558" r="4.5" fill="#D9646E"/>
+      <text x="128" y="552" font-size="18" font-weight="700" fill="#2A2A2A">皆さまのスマホ</text>
+      <text x="128" y="576" font-size="13" fill="#7A6A4F">さきほどの投稿</text>
+
+      <g filter="url(#soft)"><rect x="500" y="185" width="340" height="415" rx="22" fill="url(#hubGrad)"/></g>
+      <g stroke="#fff" stroke-width="2.5">
+        <line x1="640" y1="250" x2="600" y2="222"/>
+        <line x1="640" y1="250" x2="680" y2="222"/>
+        <line x1="640" y1="250" x2="604" y2="288"/>
+        <line x1="640" y1="250" x2="676" y2="288"/>
+      </g>
+      <circle cx="640" cy="250" r="15" fill="none" stroke="#fff" stroke-width="2.5">
+        <animate attributeName="r" values="15;48;48" keyTimes="0;0.75;1" dur="2.6s" repeatCount="indefinite"/>
+        <animate attributeName="stroke-opacity" values="0.7;0;0" keyTimes="0;0.75;1" dur="2.6s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="640" cy="250" r="15" fill="#fff"/>
+      <circle cx="600" cy="220" r="8" fill="#FFE3D5"/>
+      <circle cx="680" cy="220" r="8" fill="#FFE3D5"/>
+      <circle cx="604" cy="290" r="8" fill="#FFE3D5"/>
+      <circle cx="676" cy="290" r="8" fill="#FFE3D5"/>
+
+      <text x="640" y="345" text-anchor="middle" font-size="28" font-weight="700" fill="#fff">GeonicDB</text>
+      <text x="640" y="378" text-anchor="middle" font-size="14" fill="#FFE0D2" letter-spacing="1">NGSI-LD Context Broker</text>
+
+      <line x1="510" y1="425" x2="770" y2="425" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="1.5"/>
+
+      <g font-size="14.5" fill="#fff">
+        <circle cx="520" cy="456" r="3.5" fill="#FFF2CC"/>
+        <text x="534" y="461">すべての書き込みを標準がその場で検証</text>
+        <circle cx="520" cy="496" r="3.5" fill="#FFF2CC"/>
+        <text x="534" y="501">最新の状態をリアルタイムに一元管理</text>
+        <circle cx="520" cy="536" r="3.5" fill="#FFF2CC"/>
+        <text x="534" y="541">誰でも同じ方法で取り出せる</text>
+      </g>
+
+      <g filter="url(#soft)"><rect x="970" y="185" width="260" height="85" rx="14" fill="#FFF8EC" stroke="#FFD9B8" stroke-width="2"/></g>
+      <circle cx="1012" cy="227" r="22" fill="#FF540D"/>
+      <path d="M1012,215 a9,9 0 0 1 9,9 c0,7 -9,15 -9,15 c0,0 -9,-8 -9,-15 a9,9 0 0 1 9,-9 z" fill="#fff"/>
+      <circle cx="1012" cy="224" r="3.5" fill="#FF540D"/>
+      <text x="1048" y="233" font-size="18" font-weight="700" fill="#2A2A2A">防災・避難マップ</text>
+
+      <g filter="url(#soft)"><rect x="970" y="295" width="260" height="85" rx="14" fill="#FFF8EC" stroke="#FFD9B8" stroke-width="2"/></g>
+      <circle cx="1012" cy="337" r="22" fill="#FF540D"/>
+      <rect x="1002" y="338" width="5" height="10" fill="#fff"/>
+      <rect x="1010" y="332" width="5" height="16" fill="#fff"/>
+      <rect x="1018" y="328" width="5" height="20" fill="#fff"/>
+      <text x="1048" y="343" font-size="18" font-weight="700" fill="#2A2A2A">庁内ダッシュボード</text>
+
+      <g filter="url(#soft)"><rect x="970" y="405" width="260" height="85" rx="14" fill="#FFF8EC" stroke="#FFD9B8" stroke-width="2"/></g>
+      <circle cx="1012" cy="447" r="22" fill="#FF540D"/>
+      <rect x="1004" y="435" width="16" height="24" rx="3" fill="#fff"/>
+      <circle cx="1012" cy="455" r="1.8" fill="#FF540D"/>
+      <text x="1048" y="453" font-size="18" font-weight="700" fill="#2A2A2A">市民向けアプリ <tspan font-size="13" fill="#7A6A4F">(Web API)</tspan></text>
+
+      <g filter="url(#soft)"><rect x="970" y="515" width="260" height="85" rx="14" fill="#FFF8EC" stroke="#FFD9B8" stroke-width="2"/></g>
+      <circle cx="1012" cy="557" r="22" fill="#FF540D"/>
+      <text x="1012" y="563" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">AI</text>
+      <text x="1048" y="563" font-size="18" font-weight="700" fill="#2A2A2A">AIエージェント <tspan font-size="13" fill="#7A6A4F">(MCP)</tspan></text>
+
+      <g filter="url(#soft)"><rect x="50" y="650" width="1180" height="86" rx="16" fill="#FFF2CC" stroke="#F0D89A" stroke-width="2"/></g>
+      <text x="640" y="686" text-anchor="middle" font-size="19" font-weight="700" fill="#A8400F">両プロトコルを1エンジンで。フルマネージド——自治体はサーバーを運用しない。</text>
+      <text x="640" y="714" text-anchor="middle" font-size="14.5" fill="#6B5B3E">講演のあいだ皆さまが育ててきた隅の地図こそ、稼働中のGeonicDBそのもの。</text>
+
+      <text x="640" y="772" text-anchor="middle" font-size="12" fill="#A89878">※ データは国際標準のルール（NGSI-LD・ETSI GS CIM 009）で表現・管理されます。</text>
+    </svg>
+  </section>
+
+  <!-- SLIDE 11 · 払った代償と得たもの -->
+  <section class="slide" data-bg="dark" data-slide="cost-bought">
+    <div class="slide__inner">
+      <span class="kicker">柱 b · 正直な代償</span>
+      <h2 class="slide__title" style="font-size:36px; margin-bottom:0;">払った代償と、得たもの</h2>
+      <div class="cmp-grid" style="margin-top:26px; max-width:1060px;">
+        <div class="cmp-col">
+          <span class="cmp-col__head">代償</span>
+          <ul class="cat-list">
+            <li style="font-size:14px; line-height:1.7;">約3,200件の適合性テストシナリオ。製品コード1行につきテスト1.7行。</li>
+            <li style="font-size:14px; line-height:1.7;">CIM 009 v1.9.1の<em>サブセット</em>——「準拠」ではない。</li>
+            <li style="font-size:14px; line-height:1.7;">上流コミュニティが我々のバグを拾ってはくれない。標準への追随は、恒久的にこちらの仕事になった。</li>
+          </ul>
+        </div>
+        <div class="cmp-col">
+          <span class="cmp-col__head cmp-col__head--accent">得たもの</span>
+          <ul class="cat-list">
+            <li style="font-size:14px; line-height:1.7;">自治体がサーバーを運用せずに導入できるサービス。</li>
+            <li style="font-size:14px; line-height:1.7;">1エンジン・2プロトコル。</li>
+            <li style="font-size:14px; line-height:1.7;">後付けでなく、最初からの一級市民としてのエージェント。</li>
+            <li style="font-size:14px; line-height:1.7;">追加サーバーなしのセキュリティ。</li>
+          </ul>
+        </div>
+      </div>
+      <svg viewBox="0 0 1120 210" role="img" font-family="'Inter','Noto Sans JP',sans-serif" style="display:block; width:100%; max-width:900px; height:auto; margin:18px auto 0;"
+        aria-label="コード行数を比べる二本の横棒: 製品コードを1.0とし、テストコードはその1.7倍。あわせて約3,200件の適合性テストシナリオ。">
+        <title>実装は手放しても標準は手放さなかった代償: 製品コード1行につきテスト1.7行、シナリオ約3,200件。</title>
+        <g font-size="14" font-weight="700">
+          <text x="10" y="58" fill="rgba(255,255,255,.85)">製品コード</text>
+          <rect x="185" y="38" width="480" height="34" rx="7" fill="rgba(255,255,255,.14)" stroke="rgba(255,255,255,.25)" stroke-width="1.2"/>
+          <text x="678" y="61" font-size="13" fill="rgba(255,255,255,.6)">1.0</text>
+          <text x="10" y="120" fill="rgba(255,255,255,.85)">テストコード</text>
+          <rect x="185" y="100" width="816" height="34" rx="7" fill="rgba(252,108,0,.75)"/>
+          <text x="1014" y="123" font-size="13" font-weight="800" fill="#fc6c00">×1.7</text>
+        </g>
+        <rect x="185" y="152" width="330" height="36" rx="18" fill="rgba(0,0,0,.4)" stroke="rgba(251,164,12,.5)" stroke-width="1.4"/>
+        <text x="350" y="176" text-anchor="middle" font-size="14" font-weight="700" fill="#fba40c">適合性テストシナリオ 約3,200件</text>
+        <text x="560" y="205" text-anchor="middle" font-size="12.5" fill="rgba(255,255,255,.55)">ETSI GS CIM 009 v1.9.1のサブセット——「サブセット」であり「準拠」ではない</text>
+      </svg>
+      <p class="footnote" style="margin-top:10px;">「実装は手放せた。標準を手放さなかったから。」· GeonicDBのオープンソース化は<strong>予定している</strong>——時期は明言しないが、この場で申し上げておく。</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 12 · ETSI適合度 — livedeck既存スライドの内容をそのまま流用 -->
+  <section class="slide" data-bg="dark" data-slide="etsi-conformance">
+    <div class="slide__inner">
+      <span class="kicker">自社計測であり、第三者認証ではない</span>
+      <h2 class="slide__title" style="font-size:36px; margin-bottom:20px;">ETSI NGSI-LD 適合度 84.2%</h2>
+      <div class="ha-hero">
+        <div class="ha-hero__main">
+          <span class="ha-hero__num">84.2<small>%</small></span>
+          <span class="ha-hero__label">870 / 1033 項目</span>
+        </div>
+        <div class="ha-hero__desc">
+          <p>ETSI GS CIM 009（NGSI-LD）適合性テストスイート（全1,033項目）を、GeonicDBと主要OSSコンテキストブローカー3製品へ<strong>同一条件で</strong>実行した。</p>
+          <p class="ha-hero__note">自社計測・計測日2026-08-28・GeonicDB v0.17.0。「準拠」とは言い換えない——「サブセット」という誠実な言葉が、ここにも当てはまる。</p>
+        </div>
+      </div>
+      <div class="metrics metrics--4 metrics--sm" style="margin-top:16px;">
+        <div class="metric metric--lead"><span class="metric__num">84.2<small>%</small></span><span class="metric__label">GeonicDB</span></div>
+        <div class="metric"><span class="metric__num">51.6<small>%</small></span><span class="metric__label">Stellio</span></div>
+        <div class="metric"><span class="metric__num">36.5<small>%</small></span><span class="metric__label">Scorpio</span></div>
+        <div class="metric"><span class="metric__num">24.6<small>%</small></span><span class="metric__label">FIWARE Orion-LD</span></div>
+      </div>
+      <svg viewBox="0 0 1120 236" role="img" font-family="'Inter','Noto Sans JP',sans-serif" style="display:block; width:100%; max-width:700px; height:auto; margin:14px auto 0;"
+        aria-label="同一条件で計測したETSI NGSI-LD適合性テストの合格率横棒グラフ: GeonicDB 84.2%、Stellio 51.6%、Scorpio 36.5%、FIWARE Orion-LD 24.6%。">
+        <title>ETSI GS CIM 009スイート(全1,033項目)の自社計測合格率。4ブローカーとも同一条件。</title>
+        <g font-size="14" font-weight="700">
+          <text x="10" y="42" fill="rgba(255,255,255,.92)">GeonicDB</text>
+          <rect x="190" y="22" width="758" height="30" rx="6" fill="#fc6c00"/>
+          <text x="958" y="44" font-size="14.5" font-weight="800" fill="#fc6c00">84.2%</text>
+          <text x="1035" y="44" font-size="11.5" fill="rgba(255,255,255,.5)">870/1033</text>
+          <text x="10" y="98" fill="rgba(255,255,255,.75)">Stellio</text>
+          <rect x="190" y="78" width="464" height="30" rx="6" fill="rgba(255,255,255,.22)"/>
+          <text x="664" y="100" font-size="14" fill="rgba(255,255,255,.75)">51.6%</text>
+          <text x="10" y="154" fill="rgba(255,255,255,.75)">Scorpio</text>
+          <rect x="190" y="134" width="329" height="30" rx="6" fill="rgba(255,255,255,.22)"/>
+          <text x="529" y="156" font-size="14" fill="rgba(255,255,255,.75)">36.5%</text>
+          <text x="10" y="210" fill="rgba(255,255,255,.75)">FIWARE Orion-LD</text>
+          <rect x="190" y="190" width="221" height="30" rx="6" fill="rgba(255,255,255,.22)"/>
+          <text x="421" y="212" font-size="14" fill="rgba(255,255,255,.75)">24.6%</text>
+        </g>
+        <line x1="948" y1="14" x2="948" y2="226" stroke="rgba(255,255,255,.18)" stroke-width="1.2" stroke-dasharray="4 5"/>
+        <line x1="1090" y1="14" x2="1090" y2="226" stroke="rgba(255,255,255,.12)" stroke-width="1.2" stroke-dasharray="2 6"/>
+        <text x="1096" y="230" font-size="11" fill="rgba(255,255,255,.35)" text-anchor="start">100</text>
+      </svg>
+      <p class="footnote" style="margin-top:10px; max-width:1000px;">出典: ETSI GS CIM 009適合性テストスイートを用いた自社計測（4ブローカーへ同一条件で実行）。測ったのであって、勝負に勝ったのではない。バージョン・設定条件は必要に応じて提示する。</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 13 · 見返り(柱c) — この頃には隅の地図が育っている -->
+  <section class="slide" data-bg="dark" data-slide="payoff">
+    <div class="slide__inner">
+      <span class="kicker">柱 c · エージェントが得るもの</span>
+      <h2 class="slide__title" style="font-size:36px; margin-bottom:14px;">意味の層がエージェントに渡すもの</h2>
+      <svg viewBox="0 0 1120 372" role="img" font-family="'Inter','Noto Sans JP',sans-serif" style="display:block; width:100%; max-width:900px; height:auto; margin:4px auto 0;"
+        aria-label="左のAIエージェントと右のGeonicDBを結ぶ四つのチャンネル: ネイティブな地理クエリ、不正データが明確なエラーで弾かれる検証済み書き込み、たどれる関係、そして自己発見のための単一MCPエンドポイント。">
+        <title>エージェントがもう推測しなくてよい四つのこと: 地理・妥当性・リンク・発見。</title>
+        <defs>
+          <marker id="n6a" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="rgba(252,108,0,.6)"/>
+          </marker>
+          <marker id="n6r" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="rgba(232,64,30,.8)"/>
+          </marker>
+          <linearGradient id="n6hub" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fc6c00"/><stop offset="1" stop-color="#e8401e"/>
+          </linearGradient>
+        </defs>
+        <rect x="10" y="66" width="220" height="290" rx="14" fill="rgba(0,0,0,.4)" stroke="rgba(255,255,255,.25)" stroke-width="1.4"/>
+        <text x="120" y="176" text-anchor="middle" font-size="19" font-weight="800" fill="rgba(255,255,255,.92)">AIエージェント</text>
+        <text x="120" y="202" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.55)">Claude · ChatGPT · Gemini …</text>
+        <rect x="880" y="66" width="230" height="290" rx="14" fill="url(#n6hub)" opacity="0.92"/>
+        <text x="995" y="176" text-anchor="middle" font-size="20" font-weight="800" fill="#fff">GeonicDB</text>
+        <text x="995" y="202" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.85)">意味の層</text>
+        <line x1="240" y1="90" x2="872" y2="90" stroke="rgba(252,108,0,.5)" stroke-width="2" marker-end="url(#n6a)"/>
+        <rect x="410" y="70" width="300" height="40" rx="20" fill="#20202a" stroke="rgba(251,164,12,.5)" stroke-width="1.3"/>
+        <text x="560" y="95" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fba40c">型付きの地理情報——ネイティブなクエリ</text>
+        <line x1="240" y1="150" x2="872" y2="150" stroke="rgba(252,108,0,.5)" stroke-width="2" marker-end="url(#n6a)"/>
+        <rect x="410" y="130" width="300" height="40" rx="20" fill="#20202a" stroke="rgba(251,164,12,.5)" stroke-width="1.3"/>
+        <text x="560" y="155" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fba40c">書き込み——入口で検証</text>
+        <path d="M858,172 C790,208 700,208 645,186" fill="none" stroke="rgba(232,64,30,.8)" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#n6r)"/>
+        <text x="690" y="226" text-anchor="middle" font-size="12" font-weight="700" fill="#e8401e">不正データ → 明確なエラー、保存されない</text>
+        <line x1="240" y1="264" x2="872" y2="264" stroke="rgba(252,108,0,.5)" stroke-width="2" marker-end="url(#n6a)"/>
+        <rect x="410" y="244" width="300" height="40" rx="20" fill="#20202a" stroke="rgba(251,164,12,.5)" stroke-width="1.3"/>
+        <text x="560" y="269" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fba40c">たどれる関係——グラフを歩く</text>
+        <line x1="240" y1="336" x2="872" y2="336" stroke="rgba(252,108,0,.5)" stroke-width="2" marker-end="url(#n6a)"/>
+        <rect x="410" y="316" width="300" height="40" rx="20" fill="#20202a" stroke="rgba(251,164,12,.5)" stroke-width="1.3"/>
+        <text x="560" y="341" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fba40c">単一のMCPエンドポイント——自己発見</text>
+      </svg>
+      <p class="footnote" style="margin-top:14px;">588件の静かなnullを思い出してほしい。「入口で検証」は、まさにあの失敗を防ぐ設計だ。主張はここまで——クエリしよう。</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 14 · 収穫 (DEMO CUE ④ — ミニマップがこの画面いっぱいに拡大→エージェントと分割画面) -->
+  <section class="slide" data-bg="dark" data-slide="harvest" data-live="true">
+    <div class="slide__inner">
+      <span class="kicker">デモ · 柱 c</span>
+      <h2 class="slide__title" style="font-size:36px; margin-bottom:18px;">これが、二百人をデータセットにした姿だ</h2>
+      <p class="lead">隅の地図がこの画面いっぱいに広がる。続いて、GeonicDBの<code>/mcp</code>エンドポイントへ接続したClaudeとの分割画面へ——皆さまのスマホが書き込んできた、その同じライブデータベースである。</p>
+      <p class="footnote" style="margin-top:20px;">Q1: 投稿は何件、うち仕込みは何件？ · Q2: 同じものを指す投稿はどれか——束ねて、根拠を引用。 · Q3: 三文で、この会場はどんな顔ぶれか？ · そして——会場から一問、その場で。</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 15 · メタな一点(引用+収束図) -->
+  <section class="slide" data-bg="dark" data-slide="meta-point">
+    <div class="slide__inner" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:24px;">
+      <p class="callout" style="max-width:900px; font-size:24px; line-height:1.7; text-align:left; padding:34px 44px;">「二百人の見知らぬ人々が、二十分で相互運用可能なデータセットを作った——スキーマ会議は一度も開かずに。会議の代わりを、標準が務めたのだ。」</p>
+      <svg viewBox="0 0 1120 240" role="img" font-family="'Inter','Noto Sans JP',sans-serif" style="display:block; width:100%; max-width:880px; height:auto;"
+        aria-label="散らばった200の点がひとつの標準を通り、「スキーマ会議0回」のバッジが付いたひとつのデータセットへ収束する図。">
+        <title>見知らぬ200人 → ひとつの標準 → 相互運用可能なひとつのデータセット。スキーマ会議は0回。</title>
+        <defs>
+          <marker id="n15a" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="rgba(252,108,0,.6)"/>
+          </marker>
+          <linearGradient id="n15hub" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fc6c00"/><stop offset="1" stop-color="#e8401e"/>
+          </linearGradient>
+        </defs>
+        <circle cx="38" cy="58" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="72" cy="42" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="104" cy="70" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="64" cy="96" r="6" fill="#6b7a90" fill-opacity=".55" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="136" cy="50" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="168" cy="78" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="94" cy="128" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="130" cy="102" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="200" cy="56" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="232" cy="84" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="170" cy="124" r="6" fill="#6b7a90" fill-opacity=".55" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="206" cy="142" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="52" cy="152" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="88" cy="170" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="140" cy="158" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="246" cy="120" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="268" cy="62" r="6" fill="#6b7a90" fill-opacity=".55" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="262" cy="158" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="226" cy="178" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="184" cy="188" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="120" cy="196" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="60" cy="192" r="6" fill="#6b7a90" fill-opacity=".55" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="280" cy="96" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="250" cy="44" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="156" cy="34" r="6" fill="#39d6c6" fill-opacity=".9" stroke="#fff" stroke-width="1.2"/>
+        <circle cx="288" cy="182" r="6" fill="#6b7a90" fill-opacity=".55" stroke="#fff" stroke-width="1.2"/>
+        <text x="160" y="228" text-anchor="middle" font-size="13" fill="rgba(255,255,255,.6)">見知らぬ200人 · 日英混在</text>
+        <line x1="302" y1="60" x2="412" y2="114" stroke="rgba(252,108,0,.5)" stroke-width="2" marker-end="url(#n15a)"/>
+        <line x1="302" y1="100" x2="412" y2="118" stroke="rgba(252,108,0,.5)" stroke-width="2" marker-end="url(#n15a)"/>
+        <line x1="302" y1="140" x2="412" y2="124" stroke="rgba(252,108,0,.5)" stroke-width="2" marker-end="url(#n15a)"/>
+        <line x1="302" y1="180" x2="412" y2="128" stroke="rgba(252,108,0,.5)" stroke-width="2" marker-end="url(#n15a)"/>
+        <text x="575" y="72" text-anchor="middle" font-size="12.5" font-style="italic" fill="rgba(255,255,255,.55)">会議の代わりを標準が務める</text>
+        <rect x="420" y="88" width="310" height="64" rx="32" fill="#20202a" stroke="rgba(251,164,12,.5)" stroke-width="1.3"/>
+        <text x="575" y="115" text-anchor="middle" font-size="14.5" font-weight="700" fill="#fba40c">NGSI-LD + 登録済みデータモデル</text>
+        <text x="575" y="136" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.6)">入口でバリデーション</text>
+        <line x1="734" y1="120" x2="812" y2="120" stroke="rgba(252,108,0,.5)" stroke-width="2" marker-end="url(#n15a)"/>
+        <rect x="820" y="52" width="284" height="136" rx="14" fill="url(#n15hub)" opacity="0.92"/>
+        <text x="962" y="98" text-anchor="middle" font-size="17" font-weight="800" fill="#fff">相互運用可能な</text>
+        <text x="962" y="122" text-anchor="middle" font-size="17" font-weight="800" fill="#fff">ひとつのデータセット</text>
+        <rect x="876" y="138" width="172" height="30" rx="15" fill="rgba(0,0,0,.35)"/>
+        <text x="962" y="158" text-anchor="middle" font-size="13" font-weight="700" fill="#fff" font-family="'JetBrains Mono',monospace">スキーマ会議: 0回</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- SLIDE 16 · 締め — 3問版/2問版(+QA中も投稿できるようQR再掲) -->
+  <section class="slide slide--closing" data-bg="title" data-slide="closing">
+    <div class="grid-bg" aria-hidden="true"></div>
+    <div class="slide__inner closing__inner" style="max-width:none; padding:70px 80px;">
+      <h2 class="closing__headline" style="margin-bottom:34px;">締め — このコミュニティへの問い</h2>
+      <div class="pillars" id="close-questions">
+        <div class="pillar" data-q="1">
+          <span class="mono" style="color:#fba40c; font-weight:800;" data-qno>1</span>
+          <p>適合性テストスイートこそ——リファレンス実装ではなく——標準コミュニティが守るべき共有財産ではないか？</p>
+        </div>
+        <div class="pillar" data-q="2">
+          <span class="mono" style="color:#fba40c; font-weight:800;" data-qno>2</span>
+          <p>人が介在しない「エージェント同士」のデータ交換について、NGSI-LDとOGCはどう答えるのか？</p>
+        </div>
+        <div class="pillar" data-q="3">
+          <span class="mono" style="color:#fba40c; font-weight:800;" data-qno>3</span>
+          <p>公共データの「意味を開く」政策とは何か——誰がそれを書くのか？</p>
+        </div>
+      </div>
+      <p class="closing__sub" style="margin-top:36px;">データを開く——それは常に正しい。次は、その意味を開こう。</p>
+      <div style="display:flex; align-items:center; gap:16px; margin-top:18px;">
+        <div style="flex:0 0 auto; width:92px; height:92px; border-radius:8px; overflow:hidden;"><svg style="width:100%;height:100%;" role="img" aria-label="https://geolonia.github.io/foss4g-keynote/post/" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35" shape-rendering="crispEdges"><title>QRコード — 投稿フォーム (geolonia.github.io/foss4g-keynote/post/)</title><path fill="#ffffff" d="M0 0h35v35H0z"/><path stroke="#17171d" d="M1 1.5h7m4 0h2m1 0h1m1 0h1m2 0h3m1 0h1m2 0h7M1 2.5h1m5 0h1m2 0h1m1 0h2m2 0h2m1 0h1m7 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m1 0h5m1 0h1m1 0h1m4 0h3m2 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m1 0h5m5 0h2m2 0h2m2 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h3m3 0h1m1 0h2m2 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m1 0h1m1 0h2m1 0h1m5 0h1m2 0h1m3 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h1m1 0h2m2 0h1m1 0h1m2 0h3m1 0h1M1 9.5h1m1 0h5m3 0h1m1 0h3m2 0h1m1 0h1m2 0h3m1 0h5M2 10.5h3m5 0h1m3 0h2m1 0h6m1 0h1m2 0h2m1 0h2m1 0h1M2 11.5h1m1 0h2m1 0h2m1 0h1m3 0h3m1 0h1m3 0h2m1 0h3m1 0h1m1 0h1M1 12.5h1m6 0h5m1 0h1m2 0h3m1 0h2m3 0h2m1 0h5M2 13.5h2m2 0h3m1 0h1m1 0h1m2 0h3m3 0h1m2 0h3m1 0h3m1 0h1M1 14.5h1m2 0h1m1 0h1m1 0h3m5 0h1m2 0h1m4 0h1m1 0h2m2 0h1m1 0h2M1 15.5h1m2 0h6m1 0h2m1 0h6m1 0h2m2 0h8M2 16.5h3m1 0h1m1 0h2m1 0h1m1 0h1m1 0h2m2 0h1m2 0h2m1 0h3m1 0h3M1 17.5h4m2 0h2m2 0h6m1 0h2m1 0h1m1 0h1m1 0h2m1 0h2m3 0h1M2 18.5h3m1 0h1m2 0h1m1 0h2m1 0h1m2 0h1m1 0h3m2 0h1m2 0h2m1 0h2m1 0h1M3 19.5h1m1 0h3m2 0h8m1 0h1m1 0h1m1 0h1m2 0h1m1 0h2m1 0h2M1 20.5h1m2 0h1m3 0h3m1 0h3m2 0h1m4 0h3m3 0h4M1 21.5h2m3 0h2m1 0h1m3 0h1m5 0h2m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1M1 22.5h2m2 0h2m1 0h1m4 0h6m2 0h2m1 0h1m2 0h1m5 0h1M1 23.5h1m1 0h1m1 0h3m1 0h1m1 0h3m4 0h1m1 0h1m1 0h1m3 0h1m3 0h1m1 0h1M1 24.5h1m1 0h1m1 0h2m1 0h2m2 0h1m1 0h2m1 0h1m1 0h6m1 0h8M1 25.5h1m1 0h2m2 0h2m1 0h1m3 0h1m3 0h1m1 0h1m3 0h6m2 0h2M9 26.5h2m1 0h1m5 0h4m3 0h1m3 0h1m1 0h3M1 27.5h7m2 0h1m3 0h5m2 0h1m1 0h3m1 0h1m1 0h1m1 0h1M1 28.5h1m5 0h1m1 0h2m1 0h4m1 0h5m2 0h2m3 0h5M1 29.5h1m1 0h3m1 0h1m1 0h1m1 0h1m2 0h2m1 0h1m3 0h3m1 0h6M1 30.5h1m1 0h3m1 0h1m1 0h2m1 0h1m2 0h2m1 0h2m4 0h3m2 0h3m1 0h1M1 31.5h1m1 0h3m1 0h1m1 0h1m1 0h2m1 0h1m1 0h2m1 0h1m1 0h1m1 0h3m1 0h2m1 0h2M1 32.5h1m5 0h1m4 0h3m1 0h1m5 0h1m3 0h1m2 0h3M1 33.5h7m1 0h3m1 0h2m1 0h1m1 0h1m4 0h1m1 0h2m1 0h1m1 0h1m1 0h1"/></svg></div>
+        <p class="footnote" style="margin:0;">ご清聴ありがとうございました。地図はこのまま——皆さまの投稿は、実在のデータベースの実在のエンティティである。<br><span class="mono">geolonia.github.io/foss4g-keynote/post/</span></p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- 常駐ミニマップ (DEMO CUE ②): スライド2で出現・右下常駐・スライド14で全画面化 -->
+<aside id="inset-map" hidden aria-label="会場投稿のライブ地図"
+  style="position:fixed; right:18px; bottom:64px; width:302px; height:212px; z-index:40; border-radius:12px; overflow:hidden; border:1px solid rgba(252,108,0,.45); box-shadow:0 10px 40px rgba(0,0,0,.5); background:#0a0f1c;">
+  <div id="inset-map-canvas" style="position:absolute; inset:0;"></div>
+  <div id="inset-legend" class="mono" style="position:absolute; left:8px; top:6px; z-index:5; font-size:10px; color:rgba(255,255,255,.85); text-shadow:0 1px 3px rgba(0,0,0,.9);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#39d6c6;margin-right:3px;"></span>会場 <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6b7a90;margin:0 3px 0 8px;"></span>仕込み</div>
+  <div id="inset-status" class="mono" style="position:absolute; left:8px; bottom:6px; z-index:5; font-size:10px; color:rgba(255,255,255,.85); text-shadow:0 1px 3px rgba(0,0,0,.9);"></div>
+</aside>
+
+<div class="ui">
+  <div class="ui__progress"><div id="progressBar" class="ui__progress-bar"></div></div>
+  <div class="ui__controls">
+    <button id="prevBtn" class="ui__btn" aria-label="前のスライド">‹</button>
+    <span id="counter" class="ui__counter mono">1 / 16</span>
+    <button id="nextBtn" class="ui__btn" aria-label="次のスライド">›</button>
+    <button id="fsBtn" class="ui__btn ui__btn--fs" aria-label="全画面">⛶</button>
+    <button id="variantToggle" class="ui__btn mono" type="button" style="width:auto; padding:0 12px; font-size:11px;">締め: 3問</button>
+  </div>
+</div>
+<div id="hint" class="hint mono">← → / Space で移動 · F で全画面</div>
+
+<div class="rotate-hint" role="alert">
+  <div class="rotate-hint__inner">
+    <span class="rotate-hint__icon" aria-hidden="true">📱↻</span>
+    <p class="rotate-hint__text">端末を<strong>横向き</strong>にしてください</p>
+    <p class="rotate-hint__sub">このデッキは横長レイアウトです</p>
+  </div>
+</div>
+
+<script src="https://cdn.geolonia.com/v1/embed?geolonia-api-key=%GEOLONIA_KEY%"></script>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

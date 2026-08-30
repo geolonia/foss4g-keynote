@@ -8,4 +8,6 @@ dist/
 .envrc
 test-results/
 playwright-report/
+blob-report/
 e2e/.artifacts/
+e2e-shots/

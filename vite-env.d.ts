@@ -1,8 +1,6 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** デッキ共通の統合 API キー（統合ポリシー geonicdb-livedeck-deck・origin 制限＋DPoP）。本番は CI で注入。 */
-  readonly VITE_GEONICDB_KEY?: string;
   /** Geolonia Maps の API キー（index.html の CDN タグへ置換）。 */
   readonly VITE_GEOLONIA_API_KEY?: string;
 }

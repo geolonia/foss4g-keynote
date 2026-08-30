@@ -26,7 +26,7 @@ function parseRealCount(text: string | null): number {
 
 test.describe("独立投稿ページ /post/", () => {
   test("デッキ本体に依存せず単独で開ける・フォーム要素が揃っている(既定=英語)", async ({ page }) => {
-    await page.goto("/post/");
+    await page.goto("./post/");
     // 2026-08-30 23:24 殿ご指摘: FOSS4G Globalは英語講演ゆえUIは英語を既定とする。
     await expect(page).toHaveTitle(/Venue Contribution — FOSS4G Hiroshima 2026/);
     await expect(page.locator("h1")).toHaveText(/Your voice becomes data on the map/);
@@ -45,14 +45,14 @@ test.describe("独立投稿ページ /post/", () => {
   });
 
   test("バリデーション: 必須項目が空だと送信できずエラーが表示される(既定=英語)", async ({ page }) => {
-    await page.goto("/post/");
+    await page.goto("./post/");
     await page.click("#cb-submit");
     await expect(page.locator("#cb-err-origin")).toHaveText(/Please enter where you're from/);
     await expect(page.locator("#cb-err-specialty")).toHaveText(/Please enter a local specialty/);
   });
 
   test("言語切替: 既定は英語・トグルで日本語に切り替わる", async ({ page }) => {
-    await page.goto("/post/");
+    await page.goto("./post/");
     await expect(page.locator("h1")).toHaveText(/Your voice becomes data on the map/);
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
@@ -74,7 +74,7 @@ test.describe("独立投稿ページ /post/", () => {
   test("出身地欄は日本限定ではない: datalistに国名が含まれ、国名を自由入力して検証を通過できる", async ({
     page,
   }) => {
-    await page.goto("/post/");
+    await page.goto("./post/");
 
     // 2026-08-30 23:28 gunshi指摘の真因是正確認: datalistが47都道府県のみだと
     // 「タップ=日本限定select」と誤認される。国名を含む混在リストになっているか。
@@ -94,7 +94,7 @@ test.describe("独立投稿ページ /post/", () => {
   });
 
   test("地図の器はページ読込直後からDOMに存在し、初期状態は非表示", async ({ page }) => {
-    await page.goto("/post/");
+    await page.goto("./post/");
     const map = page.locator("#cb-map");
     // 器そのものは存在する(沈黙no-opの再発防止・器を後付けしない)。
     await expect(map).toHaveCount(1);
@@ -102,7 +102,7 @@ test.describe("独立投稿ページ /post/", () => {
   });
 
   test("「地図を開く」操作で実際に地図(canvas)が描画される", async ({ page }) => {
-    await page.goto("/post/");
+    await page.goto("./post/");
     const map = page.locator("#cb-map");
     await expect(map).toBeHidden();
 
@@ -130,7 +130,7 @@ test.describe("独立投稿ページ /post/", () => {
         "(本番オリジン https://geolonia.github.io は許可済み・2026-08-30実測)。" +
         "E2E_BASE_URL=<デプロイ済みURL> で実行せよ。",
     );
-    await page.goto("/post/");
+    await page.goto("./post/");
 
     // カウンタの初期取得(db.count())完了を待ってから基準値を取る。
     const counter = page.locator("#cb-count");

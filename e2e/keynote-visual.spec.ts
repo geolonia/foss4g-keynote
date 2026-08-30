@@ -97,7 +97,7 @@ async function walkDeck(
 }
 
 for (const lang of ["en", "ja"] as const) {
-  const base = lang === "en" ? "/" : "/ja/";
+  const base = lang === "en" ? "./" : "./ja/";
 
   test(`visual quantitative gate + projection screenshots (${lang}, 1920x1080)`, async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });

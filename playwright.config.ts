@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-// subtask_754d: geonicdb-console の playwright.config.ts (E2E_BASE_URL パターン) をそのまま流用。
+// geonicdb-console の playwright.config.ts (E2E_BASE_URL パターン) をそのまま流用。
 // E2E_BASE_URL を渡すと、ローカル Vite dev server の代わりに任意の環境
 // (例: GitHub Pages 本番) に対して同じスペックを実行できる。
 //
@@ -11,15 +11,17 @@ import { defineConfig } from "@playwright/test";
 // ここで末尾スラッシュを必ず補う(CodeRabbit指摘・実害: page.goto("/") 等の
 // 絶対パス解決はプレフィックスを完全に破棄するため、spec側も相対パス表記に統一する)。
 //
-// ポートは 8745 固定(vite.config.ts の server/preview port と同一)。Geolonia Maps の
-// API キーが origin 制限付きで localhost:8745 のみ許可されているため、他ポートで
-// 起動すると地図が読み込めない(PR#3/754b merge時に判明・pulse 準拠)。
-const rawBaseURL = process.env.E2E_BASE_URL || "http://localhost:8745";
+// ポートは既定 8745(vite.config.ts の server/preview port と同一・Geolonia Maps の
+// API キーが origin 制限付きで localhost:8745 のみ許可されているため)。8745 を
+// 別プロセス(例: livedeck の dev server)が使っている場合は E2E_PORT で逃がせる
+// (API キー未使用のローカル計測ではポートは任意)。
+const port = Number(process.env.E2E_PORT || 8745);
+const rawBaseURL = process.env.E2E_BASE_URL || `http://localhost:${port}`;
 const baseURL = rawBaseURL.endsWith("/") ? rawBaseURL : `${rawBaseURL}/`;
 
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 30_000,
+  timeout: 120_000,
   retries: process.env.CI ? 2 : 0,
   use: {
     baseURL,
@@ -51,8 +53,8 @@ export default defineConfig({
     ? {}
     : {
         webServer: {
-          command: "npx vite --port 8745",
-          port: 8745,
+          command: `npx vite --port ${port}`,
+          port,
           timeout: 30_000,
           reuseExistingServer: false,
         },

@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="robots" content="noindex" />
-  <title>会場投稿 / Venue Contribution — FOSS4G Hiroshima 2026</title>
+  <title data-en="Venue Contribution — FOSS4G Hiroshima 2026" data-ja="会場投稿 — FOSS4G Hiroshima 2026">Venue Contribution — FOSS4G Hiroshima 2026</title>
   <link rel="stylesheet" href="/src/styles/styles.css" />
   <style>
-    /* post ページ専用の最小レイアウト。デッキのスライド演出（横向き固定・
-       rotate-hint 等）は継承しない — スマホ縦持ちでそのまま使える独立ページ。 */
+    /* post ページ専用の最小レイアウト。デッキのスライド演出(横向き固定・
+       rotate-hint 等)は継承しない — スマホ縦持ちでそのまま使える独立ページ。 */
     body.post-page {
       min-height: 100vh;
       display: flex;
@@ -18,13 +18,17 @@
     }
     .post-card { width: 100%; max-width: 480px; }
     .post-head { text-align: center; margin-bottom: 20px; }
+    /* 言語トグルは post-head と別行(right-align)に置く。post-head 内へ
+       絶対配置すると、中央寄せの kicker テキストと幅次第で重なるため。 */
+    .cb-topbar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+    .cb-lang-toggle { font-size: 12px; padding: 6px 10px; }
     .cb-map-toggle {
       width: 100%;
       margin-top: 18px;
     }
-    /* #cb-map は contributionMap.ts が hidden 属性の変化を監視して初期化する“器”。
+    /* #cb-map は contributionMap.ts が hidden 属性の変化を監視して初期化する"器"。
        このページでは常に DOM に存在させ、トグルボタンで hidden を外すことで
-       実際に地図が描画される（沈黙no-op教訓・器を後付けしない）。 */
+       実際に地図が描画される(沈黙no-op教訓・器を後付けしない)。 */
     #cb-map {
       margin-top: 12px;
       display: flex;
@@ -32,60 +36,72 @@
       min-height: 280px;
     }
     #cb-map[hidden] { display: none; }
+    /* cb-origin/specialty/hiddenSpot は<select>ではなく自由入力の<input type="text">。
+       .fb-select(appearance:none+cursor:pointer+chevron背景)を流用すると
+       "選択式のドロップダウン"に見え、自由入力できることが伝わらない
+       (2026-08-30 殿ご指摘: 日本47都道府県限定selectに見える、の真因の一部)。
+       ゆえにこのページでは.fb-selectと同等の見た目(枠線・背景・文字色)だけを
+       .cb-text として複製し、選択式を示唆する装飾(appearance/cursor/chevron)は外す。 */
+    .cb-text {
+      border: 1px solid rgba(255,255,255,.16); border-radius: 9px;
+      color: #eef2f8; font-size: 14px; font-family: inherit; padding: 10px 12px;
+    }
+    .cb-text:focus { outline: none; border-color: var(--cyan); }
   </style>
 </head>
 <body class="post-page" data-bg="dark">
   <main class="post-card">
+    <div class="cb-topbar">
+      <button type="button" id="cb-lang-toggle" class="geo-btn geo-btn--ghost cb-lang-toggle" aria-pressed="false">EN / 日本語</button>
+    </div>
     <div class="post-head">
-      <span class="kicker">会場投稿 / Venue Contribution</span>
-      <h1 class="slide__title map-title">あなたの一言が地図に載る<br><span class="cb-en">Your voice becomes data on the map</span></h1>
-      <p class="map-desc">出身地とその土地の名物を教えてください（ログイン不要・5秒で終わります）。<br class="cb-en-break"><span class="cb-en">Where are you from? Tell us a local specialty — no login required.</span></p>
+      <span class="kicker" data-en="Venue Contribution" data-ja="会場投稿">Venue Contribution</span>
+      <h1 class="slide__title map-title" data-en="Your voice becomes data on the map" data-ja="あなたの一言が地図に載る">Your voice becomes data on the map</h1>
+      <p class="map-desc" data-en="Where are you from? Tell us a local specialty — no login required." data-ja="出身地とその土地の名物を教えてください(ログイン不要・5秒で終わります)。">Where are you from? Tell us a local specialty — no login required.</p>
     </div>
 
     <form id="cb-form" class="fb-form" autocomplete="off" novalidate>
       <label class="fb-field">
-        <span class="fb-field__label">出身地(都道府県 / 国) <span class="cb-en">Where are you from?</span></span>
-        <input id="cb-origin" class="fb-select cb-input" type="text" list="cb-origin-list" placeholder="例: 香川県 / Kagawa / France" maxlength="100" required />
+        <span class="fb-field__label" data-en="Where are you from?" data-ja="出身地(都道府県 / 国)">Where are you from?</span>
+        <input id="cb-origin" class="cb-text cb-input" type="text" list="cb-origin-list" placeholder="e.g. Kagawa, Japan / France / Taiwan" maxlength="100" required />
         <span id="cb-err-origin" class="cb-err" role="alert"></span>
       </label>
       <label class="fb-field">
-        <span class="fb-field__label">その土地の名物を一つ <span class="cb-en">A local specialty</span></span>
-        <input id="cb-specialty" class="fb-select cb-input" type="text" placeholder="例: 讃岐うどん / Fromage" maxlength="100" required />
+        <span class="fb-field__label" data-en="A local specialty" data-ja="その土地の名物を一つ">A local specialty</span>
+        <input id="cb-specialty" class="cb-text cb-input" type="text" placeholder="e.g. Sanuki udon / Fromage" maxlength="100" required />
         <span id="cb-err-specialty" class="cb-err" role="alert"></span>
       </label>
       <label class="fb-field">
-        <span class="fb-field__label">(任意) 地元の隠れ名所 <span class="cb-en">(Optional) A hidden local spot</span></span>
-        <input id="cb-hiddenSpot" class="fb-select cb-input" type="text" placeholder="地図に載っていない場所 / Not on the map yet" maxlength="200" />
+        <span class="fb-field__label" data-en="(Optional) A hidden local spot" data-ja="(任意) 地元の隠れ名所">(Optional) A hidden local spot</span>
+        <input id="cb-hiddenSpot" class="cb-text cb-input" type="text" placeholder="Not on the map yet / 地図に載っていない場所" maxlength="200" />
         <span id="cb-err-hiddenSpot" class="cb-err" role="alert"></span>
       </label>
+      <!-- 自由入力の一助となる候補(<select>ではない・タップした瞬間に国際的だと
+           伝わるよう日本と海外の地名を混在させる。網羅目的ではない)。 -->
       <datalist id="cb-origin-list">
-        <option value="北海道"></option><option value="青森県"></option><option value="岩手県"></option>
-        <option value="宮城県"></option><option value="秋田県"></option><option value="山形県"></option>
-        <option value="福島県"></option><option value="茨城県"></option><option value="栃木県"></option>
-        <option value="群馬県"></option><option value="埼玉県"></option><option value="千葉県"></option>
-        <option value="東京都"></option><option value="神奈川県"></option><option value="新潟県"></option>
-        <option value="富山県"></option><option value="石川県"></option><option value="福井県"></option>
-        <option value="山梨県"></option><option value="長野県"></option><option value="岐阜県"></option>
-        <option value="静岡県"></option><option value="愛知県"></option><option value="三重県"></option>
-        <option value="滋賀県"></option><option value="京都府"></option><option value="大阪府"></option>
-        <option value="兵庫県"></option><option value="奈良県"></option><option value="和歌山県"></option>
-        <option value="鳥取県"></option><option value="島根県"></option><option value="岡山県"></option>
-        <option value="広島県"></option><option value="山口県"></option><option value="徳島県"></option>
-        <option value="香川県"></option><option value="愛媛県"></option><option value="高知県"></option>
-        <option value="福岡県"></option><option value="佐賀県"></option><option value="長崎県"></option>
-        <option value="熊本県"></option><option value="大分県"></option><option value="宮崎県"></option>
-        <option value="鹿児島県"></option><option value="沖縄県"></option>
+        <option value="Hiroshima, Japan"></option>
+        <option value="France"></option>
+        <option value="Taiwan"></option>
+        <option value="Germany"></option>
+        <option value="Bavaria, Germany"></option>
+        <option value="United States"></option>
+        <option value="Indonesia"></option>
+        <option value="India"></option>
+        <option value="South Korea"></option>
+        <option value="Kagawa, Japan"></option>
+        <option value="Netherlands"></option>
+        <option value="Australia"></option>
       </datalist>
-      <button type="submit" id="cb-submit" class="geo-btn fb-submit">▶ 投稿する / Submit</button>
+      <button type="submit" id="cb-submit" class="geo-btn fb-submit">▶ Submit</button>
     </form>
 
-    <p id="cb-count" class="fb-count" style="text-align:center;margin-top:16px;">これまでの投稿 0 件 / 0 submissions so far</p>
+    <p id="cb-count" class="fb-count" style="text-align:center;margin-top:16px;">0 submissions so far</p>
 
     <button type="button" id="cb-map-toggle" class="geo-btn geo-btn--ghost cb-map-toggle" aria-expanded="false" aria-controls="cb-map">
-      🗺️ 会場の地図を開く / Open the live map
+      🗺️ Open the live map
     </button>
     <!-- 器は最初から存在させる。中身の初期化・描画は contributionMap.ts が
-         hidden の変化を見て担当する（器だけで沈黙する状態を作らない）。 -->
+         hidden の変化を見て担当する(器だけで沈黙する状態を作らない)。 -->
     <div id="cb-map" class="fb-chart" hidden></div>
   </main>
 

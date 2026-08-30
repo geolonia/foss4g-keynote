@@ -25,9 +25,12 @@ function parseRealCount(text: string | null): number {
  */
 
 test.describe("独立投稿ページ /post/", () => {
-  test("デッキ本体に依存せず単独で開ける・フォーム要素が揃っている", async ({ page }) => {
+  test("デッキ本体に依存せず単独で開ける・フォーム要素が揃っている(既定=英語)", async ({ page }) => {
     await page.goto("/post/");
-    await expect(page).toHaveTitle(/会場投稿 \/ Venue Contribution/);
+    // 2026-08-30 23:24 殿ご指摘: FOSS4G Globalは英語講演ゆえUIは英語を既定とする。
+    await expect(page).toHaveTitle(/Venue Contribution — FOSS4G Hiroshima 2026/);
+    await expect(page.locator("h1")).toHaveText(/Your voice becomes data on the map/);
+    await expect(page.locator("#cb-submit")).toHaveText("▶ Submit");
 
     // デッキ本体固有の要素が無いこと(独立ページであることの確認)。
     await expect(page.locator(".slide")).toHaveCount(0);
@@ -41,11 +44,53 @@ test.describe("独立投稿ページ /post/", () => {
     await expect(page.locator("#cb-submit")).toBeVisible();
   });
 
-  test("バリデーション: 必須項目が空だと送信できずエラーが表示される", async ({ page }) => {
+  test("バリデーション: 必須項目が空だと送信できずエラーが表示される(既定=英語)", async ({ page }) => {
     await page.goto("/post/");
     await page.click("#cb-submit");
+    await expect(page.locator("#cb-err-origin")).toHaveText(/Please enter where you're from/);
+    await expect(page.locator("#cb-err-specialty")).toHaveText(/Please enter a local specialty/);
+  });
+
+  test("言語切替: 既定は英語・トグルで日本語に切り替わる", async ({ page }) => {
+    await page.goto("/post/");
+    await expect(page.locator("h1")).toHaveText(/Your voice becomes data on the map/);
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+
+    await page.click("#cb-lang-toggle");
+    await expect(page.locator("h1")).toHaveText(/あなたの一言が地図に載る/);
+    await expect(page.locator("html")).toHaveAttribute("lang", "ja");
+    await expect(page.locator("#cb-submit")).toHaveText("▶ 投稿する");
+
+    // 動的レンダリングのエラーメッセージも切り替わる。
+    await page.click("#cb-submit");
     await expect(page.locator("#cb-err-origin")).toHaveText(/出身地を入力してください/);
-    await expect(page.locator("#cb-err-specialty")).toHaveText(/名物を入力してください/);
+
+    // 元に戻せる。
+    await page.click("#cb-lang-toggle");
+    await expect(page.locator("h1")).toHaveText(/Your voice becomes data on the map/);
+    await expect(page.locator("#cb-err-origin")).toHaveText(/Please enter where you're from/);
+  });
+
+  test("出身地欄は日本限定ではない: datalistに国名が含まれ、国名を自由入力して検証を通過できる", async ({
+    page,
+  }) => {
+    await page.goto("/post/");
+
+    // 2026-08-30 23:28 gunshi指摘の真因是正確認: datalistが47都道府県のみだと
+    // 「タップ=日本限定select」と誤認される。国名を含む混在リストになっているか。
+    const options = await page.locator("#cb-origin-list option").evaluateAll((els) =>
+      els.map((el) => (el as HTMLOptionElement).value),
+    );
+    expect(options).toContain("France");
+    expect(options).toContain("Taiwan");
+    expect(options.some((v) => v.includes("Japan"))).toBe(true);
+
+    // datalistに無い国名(Bavaria)を含め、自由入力がバリデーションを通過することを実証。
+    await page.fill("#cb-origin", "Bavaria, Germany");
+    await page.fill("#cb-specialty", "Weisswurst");
+    await page.click("#cb-submit");
+    await expect(page.locator("#cb-err-origin")).toHaveText("");
+    await expect(page.locator("#cb-err-specialty")).toHaveText("");
   });
 
   test("地図の器はページ読込直後からDOMに存在し、初期状態は非表示", async ({ page }) => {
@@ -118,7 +163,7 @@ test.describe("独立投稿ページ /post/", () => {
     const entityId = (created.postDataJSON() as { id: string }).id;
 
     try {
-      await expect(page.locator("#cb-submit")).toHaveText(/投稿しました/, { timeout: 15_000 });
+      await expect(page.locator("#cb-submit")).toHaveText(/Submitted! Thank you/, { timeout: 15_000 });
 
       // カウンタが基準値から増える(WS/count再取得いずれかで反映)。
       await expect

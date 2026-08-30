@@ -11,9 +11,58 @@
    =================================================================== */
 import { createContributionClient } from "../lib/client";
 import { byId } from "../lib/dom";
-import { validateContribution, type ContributionInput, type ContributionField } from "./contributionValidation";
+import {
+  validateContribution,
+  ORIGIN_MAX,
+  SPECIALTY_MAX,
+  HIDDEN_SPOT_MAX,
+  type ContributionInput,
+  type ContributionField,
+} from "./contributionValidation";
 import { buildContributionEntity, CONTRIBUTION_MODEL } from "./contributionEntity";
 import { initContributionMap } from "./contributionMap";
+
+/* ---- 言語切替(既定=英語・FOSS4G Globalは英語講演のため) ----
+   contributionValidation.ts はデッキ側(contribution.ts)とも共有する
+   純粋関数ゆえ、エラーメッセージの文言そのものは変更せず(日本語のまま)、
+   ここでは「必須未入力か・文字数超過か」をraw入力から再判定して
+   言語別メッセージを組み立てる(共有モジュールへの非互換変更を避ける)。 */
+type Lang = "en" | "ja";
+
+const STR = {
+  en: {
+    submitIdle: "▶ Submit",
+    submitSending: "Sending…",
+    submitOk: "✓ Submitted! Thank you",
+    submitErr: "✗ Failed — please retry",
+    mapOpen: "🗺️ Open the live map",
+    mapClose: "🗺️ Close the live map",
+    count: (n: number) => `${n} submissions so far`,
+    err: {
+      originRequired: "Please enter where you're from",
+      originMax: `Please keep it within ${ORIGIN_MAX} characters`,
+      specialtyRequired: "Please enter a local specialty",
+      specialtyMax: `Please keep it within ${SPECIALTY_MAX} characters`,
+      hiddenSpotMax: `Please keep it within ${HIDDEN_SPOT_MAX} characters`,
+    },
+  },
+  ja: {
+    submitIdle: "▶ 投稿する",
+    submitSending: "送信中…",
+    submitOk: "✓ 投稿しました!ありがとう",
+    submitErr: "✗ 投稿に失敗 — 再度お試しください",
+    mapOpen: "🗺️ 会場の地図を開く",
+    mapClose: "🗺️ 地図を閉じる",
+    count: (n: number) => `これまでの投稿 ${n} 件`,
+    err: {
+      originRequired: "出身地を入力してください",
+      originMax: `出身地は${ORIGIN_MAX}文字以内で入力してください`,
+      specialtyRequired: "名物を入力してください",
+      specialtyMax: `名物は${SPECIALTY_MAX}文字以内で入力してください`,
+      hiddenSpotMax: `隠れ名所は${HIDDEN_SPOT_MAX}文字以内で入力してください`,
+    },
+  },
+} as const;
 
 declare global {
   interface Window {
@@ -36,23 +85,48 @@ function readInput(): ContributionInput {
   };
 }
 
-function renderErrors(errors: Partial<Record<ContributionField, string>>): void {
+/** raw入力とvalidateContributionの結果から、フィールド毎に「必須未入力か・
+ *  文字数超過か」をここで再判定し、現在の言語のメッセージを組み立てる。 */
+function renderErrors(
+  lang: Lang,
+  raw: ContributionInput,
+  errors: Partial<Record<ContributionField, string>>,
+): void {
+  const err = STR[lang].err;
   (["origin", "specialty", "hiddenSpot"] as ContributionField[]).forEach((field) => {
     const el = byId("cb-err-" + field);
-    if (el) el.textContent = errors[field] ?? "";
+    let msg = "";
+    if (errors[field]) {
+      const isEmpty = raw[field].trim().length === 0;
+      if (field === "origin") msg = isEmpty ? err.originRequired : err.originMax;
+      else if (field === "specialty") msg = isEmpty ? err.specialtyRequired : err.specialtyMax;
+      else msg = err.hiddenSpotMax; // hiddenSpotは任意項目ゆえ空はエラーにならない
+    }
+    if (el) el.textContent = msg;
     const fieldInput = byId<HTMLInputElement>("cb-" + field);
     if (fieldInput) fieldInput.setAttribute("aria-invalid", errors[field] ? "true" : "false");
   });
 }
 
-function setCount(n: number): void {
+/** ページ内の静的テキスト([data-en][data-ja]を持つ要素・<title>含む)を
+ *  一括で現在の言語へ書き換える。動的テキスト(カウンタ・送信ボタン・地図
+ *  トグル・エラー)はそれぞれの描画関数が呼び出し側で個別に再描画する。 */
+function applyStaticText(lang: Lang): void {
+  document.documentElement.lang = lang;
+  document.querySelectorAll<HTMLElement>("[data-en][data-ja]").forEach((el) => {
+    const text = lang === "en" ? el.dataset.en : el.dataset.ja;
+    if (text !== undefined) el.textContent = text;
+  });
+}
+
+function setCount(lang: Lang, n: number): void {
   const el = byId("cb-count");
-  if (el) el.textContent = "これまでの投稿 " + n + " 件 / " + n + " submissions so far";
+  if (el) el.textContent = STR[lang].count(n);
 }
 
 /** 地図トグルボタンの結線。クリックで #cb-map の hidden を外すだけ —
  *  描画自体は initContributionMap() 側の MutationObserver が担当する。 */
-function initMapToggle(): void {
+function initMapToggle(getLang: () => Lang): void {
   const btn = byId<HTMLButtonElement>("cb-map-toggle");
   const map = byId("cb-map");
   if (!btn || !map) return;
@@ -60,9 +134,7 @@ function initMapToggle(): void {
     const willShow = map.hidden;
     map.hidden = !willShow;
     btn.setAttribute("aria-expanded", String(willShow));
-    btn.textContent = willShow
-      ? "🗺️ 地図を閉じる / Close the live map"
-      : "🗺️ 会場の地図を開く / Open the live map";
+    btn.textContent = willShow ? STR[getLang()].mapClose : STR[getLang()].mapOpen;
   });
 }
 
@@ -70,6 +142,11 @@ function initMapToggle(): void {
 export function initContributionPost(): void {
   const db = createContributionClient();
   window.__contributionDb = db;
+
+  // 既定は英語(FOSS4G Globalは英語講演のため)。トグルボタンで日本語へ切替可能。
+  let lang: Lang = "en";
+  let lastRaw: ContributionInput | null = null;
+  let lastErrors: Partial<Record<ContributionField, string>> | null = null;
 
   let lastCount = 0;
   function refreshCount(): void {
@@ -79,7 +156,7 @@ export function initContributionPost(): void {
         // カウンタが一瞬減って見えないようにする(単調増加を保証)。
         if (n > lastCount) {
           lastCount = n;
-          setCount(n);
+          setCount(lang, n);
         }
       })
       .catch((err: unknown) => console.warn("[contributionPost] count fetch failed", err));
@@ -108,33 +185,36 @@ export function initContributionPost(): void {
 
   const form = byId<HTMLFormElement>("cb-form");
   const btn = byId<HTMLButtonElement>("cb-submit");
-  const SUBMIT_LABEL = btn?.textContent ?? "▶ 投稿する / Submit";
   let btnTimer = 0;
 
   form?.addEventListener("submit", (ev) => {
     ev.preventDefault();
     const raw = readInput();
     const result = validateContribution(raw);
-    renderErrors(result.errors);
+    lastRaw = raw;
+    lastErrors = result.errors;
+    renderErrors(lang, raw, result.errors);
     if (!result.ok) return;
     const entity = buildContributionEntity(raw, { seeded: false, submittedAt: nowIso() });
     if (btnTimer) window.clearTimeout(btnTimer);
     if (btn) {
       btn.disabled = true;
       btn.classList.remove("is-ok", "is-err");
-      btn.textContent = "送信中… / Sending…";
+      btn.textContent = STR[lang].submitSending;
     }
     db.createEntity(entity)
       .then(() => {
         if (btn) {
           btn.classList.add("is-ok");
-          btn.textContent = "✓ 投稿しました！ありがとう / Submitted! Thank you";
+          btn.textContent = STR[lang].submitOk;
         }
         form.reset();
+        lastRaw = null;
+        lastErrors = null;
         btnTimer = window.setTimeout(() => {
           if (btn) {
             btn.classList.remove("is-ok");
-            btn.textContent = SUBMIT_LABEL;
+            btn.textContent = STR[lang].submitIdle;
           }
         }, 3000);
       })
@@ -142,7 +222,7 @@ export function initContributionPost(): void {
         console.warn("[contributionPost] create failed", err);
         if (btn) {
           btn.classList.add("is-err");
-          btn.textContent = "✗ 投稿に失敗 / Failed — please retry";
+          btn.textContent = STR[lang].submitErr;
         }
       })
       .finally(() => {
@@ -150,8 +230,25 @@ export function initContributionPost(): void {
       });
   });
 
-  initMapToggle();
+  initMapToggle(() => lang);
   initContributionMap();
+
+  const langBtn = byId<HTMLButtonElement>("cb-lang-toggle");
+  langBtn?.addEventListener("click", () => {
+    lang = lang === "en" ? "ja" : "en";
+    langBtn.setAttribute("aria-pressed", String(lang === "ja"));
+    applyStaticText(lang);
+    setCount(lang, lastCount);
+    if (btn && !btn.disabled && !btn.classList.contains("is-ok") && !btn.classList.contains("is-err")) {
+      btn.textContent = STR[lang].submitIdle;
+    }
+    const map = byId("cb-map");
+    const mapToggleBtn = byId<HTMLButtonElement>("cb-map-toggle");
+    if (map && mapToggleBtn) {
+      mapToggleBtn.textContent = map.hidden ? STR[lang].mapOpen : STR[lang].mapClose;
+    }
+    if (lastRaw && lastErrors) renderErrors(lang, lastRaw, lastErrors);
+  });
 }
 
 initContributionPost();

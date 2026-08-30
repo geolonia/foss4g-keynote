@@ -9,3 +9,4 @@ dist/
 test-results/
 playwright-report/
 e2e/.artifacts/
+e2e-shots/

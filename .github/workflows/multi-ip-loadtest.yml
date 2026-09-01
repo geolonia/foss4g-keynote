@@ -100,6 +100,7 @@ jobs:
           node-version: 22
       - run: npm install @geolonia/geonicdb-sdk@0.18.1 --no-save
       - name: fire-one-request
+        shell: bash --noprofile --norc -eo pipefail {0}
         env:
           FIRE_AT: ${{ needs.gen-matrix.outputs.fire_at }}
           IDX: ${{ matrix.i }}
@@ -113,6 +114,7 @@ jobs:
           ORIGIN: https://geolonia.github.io
         run: node .github/scripts/multi-ip-loadtest-single.mjs | tee result-${{ matrix.i }}.log
       - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
         with:
           name: result-${{ matrix.i }}
           path: result-${{ matrix.i }}.log
@@ -134,12 +136,11 @@ jobs:
           total=$(grep -c '^RESULT ' all-results.log || echo 0)
           unique_ips=$(grep -oE 'ip=[0-9a-fA-F:.]+' all-results.log | sort -u | wc -l | tr -d ' ')
           echo "total_results=$total unique_source_ips=$unique_ips"
-          # GitHub-hosted runnerは別IPが一般的だが100%保証はないため、
-          # 「実質全件が同一IPだった」場合のみ試験の前提崩れとして検知する
-          # (閾値=総件数の半分。CodeRabbit指摘の「観測IP数がn未満なら失敗」
-          # を、共有プールでの偶発的重複を許容しつつ意味のある下限として調整)。
-          threshold=$(( (total + 1) / 2 ))
-          if [ "$total" -gt 0 ] && [ "$unique_ips" -lt "$threshold" ]; then
-            echo "::error::source IP diversity too low: $unique_ips unique IPs out of $total results (need >= $threshold). PUBLIC_RATE_LIMIT.auth の per-IP試験として意味を成さない。"
+          # 「200名・200IP」の前提を検証する試験である以上、IPの重複は
+          # 1件でも許容しない(CodeRabbit指摘: 半数閾値では例えば101件が
+          # 同一IPに集中していても見逃す=PUBLIC_RATE_LIMIT.authのper-IP
+          # 制限を正しく検証できない)。unique_ipsはtotalと厳密に一致すべき。
+          if [ "$total" -gt 0 ] && [ "$unique_ips" -ne "$total" ]; then
+            echo "::error::source IP diversity insufficient: $unique_ips unique IPs out of $total results (must equal $total, i.e. one IP per request). PUBLIC_RATE_LIMIT.auth の per-IP試験として意味を成さない。"
             exit 1
           fi

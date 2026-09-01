@@ -25,6 +25,20 @@ export interface ConnectRetryOptions {
   onGiveUp?: () => void;
 }
 
+interface RetryState {
+  attempt: number;
+  settled: boolean;
+  timer: number;
+  giveUpCallbacks: Set<() => void>;
+}
+
+/* client.tsのシングルトン化により、contributionPost.tsとcontributionMap.ts
+   が同一dbに対してそれぞれconnectWithRetry()を呼びうる。dbごとに進行中の
+   リトライ状態を1つだけ持たせ、後発の呼び出しは新たなリトライループを
+   起こさず既存ループへ相乗りする(429対策の本来の目的=認証往復の削減が、
+   2重のリトライループでかえって損なわれないようにするため)。 */
+const inFlight = new WeakMap<GeonicDB, RetryState>();
+
 /**
  * db.connect() を 'error' イベント駆動でリトライする。'connected' が一度でも
  * 観測されれば以降のリトライは行わない(その後の切断は SDK 自身の自動再接続
@@ -32,40 +46,51 @@ export interface ConnectRetryOptions {
  * 呼び出し側は返り値の cleanup() を（コンポーネント破棄等で）不要になった際に呼ぶ。
  */
 export function connectWithRetry(db: GeonicDB, opts: ConnectRetryOptions = {}): () => void {
-  // クライアントがシングルトン化された(client.ts参照)ため、contributionPost.ts
-  // とcontributionMap.tsが同一dbに対してそれぞれconnectWithRetry()を呼びうる。
-  // 既に接続済みならconnect()は即returnして'connected'を再emitしないため、
-  // ここで観測せずリスナーを付けっぱなしにしない(不要なリスナー滞留の防止)。
   if (db.isConnected()) return () => {};
+
+  const existing = inFlight.get(db);
+  if (existing) {
+    // 既に進行中のリトライループがある(同一dbへの2件目以降の呼び出し)。
+    // 新規のconnect()/リスナーを増やさず、give-up通知だけを相乗りさせる。
+    if (opts.onGiveUp) existing.giveUpCallbacks.add(opts.onGiveUp);
+    return () => {
+      if (opts.onGiveUp) existing.giveUpCallbacks.delete(opts.onGiveUp);
+    };
+  }
 
   const maxAttempts = opts.maxAttempts ?? 4;
   const baseDelayMs = opts.baseDelayMs ?? 1500;
-  let attempt = 0;
-  let settled = false;
-  let timer = 0;
+  const state: RetryState = {
+    attempt: 0,
+    settled: false,
+    timer: 0,
+    giveUpCallbacks: new Set(opts.onGiveUp ? [opts.onGiveUp] : []),
+  };
+  inFlight.set(db, state);
 
-  function cleanup(): void {
+  function teardown(): void {
+    state.settled = true;
     db.off("connected", onConnected);
     db.off("error", onError);
-    if (timer) clearTimeout(timer);
+    if (state.timer) clearTimeout(state.timer);
+    if (inFlight.get(db) === state) inFlight.delete(db);
   }
 
   function onConnected(): void {
-    settled = true;
-    cleanup();
+    teardown();
   }
 
   function onError(): void {
-    if (settled) return;
-    attempt++;
-    if (attempt >= maxAttempts) {
-      settled = true;
-      cleanup();
-      opts.onGiveUp?.();
+    if (state.settled) return;
+    state.attempt++;
+    if (state.attempt >= maxAttempts) {
+      const callbacks = [...state.giveUpCallbacks];
+      teardown();
+      callbacks.forEach((cb) => cb());
       return;
     }
-    const delay = baseDelayMs * 2 ** (attempt - 1) + randomJitterMs(500);
-    timer = setTimeout(() => {
+    const delay = baseDelayMs * 2 ** (state.attempt - 1) + randomJitterMs(500);
+    state.timer = setTimeout(() => {
       db.connect().catch(() => {
         /* connect()自体は429ではrejectしない(上記コメント参照)。
            万一reject経路があっても'error'側で拾えるためここは無視してよい。 */
@@ -77,5 +102,9 @@ export function connectWithRetry(db: GeonicDB, opts: ConnectRetryOptions = {}): 
   db.on("error", onError);
   db.connect().catch(() => {});
 
-  return cleanup;
+  return () => {
+    if (opts.onGiveUp) state.giveUpCallbacks.delete(opts.onGiveUp);
+    // 呼び出し元が単独オーナーの場合のみ、明示cleanup()でループ自体も止める。
+    if (state.giveUpCallbacks.size === 0) teardown();
+  };
 }

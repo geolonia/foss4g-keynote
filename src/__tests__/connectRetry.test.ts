@@ -80,6 +80,26 @@ describe("connectWithRetry", () => {
     expect(db.connect).toHaveBeenCalledTimes(3); // 追加のconnect()も発生しない
   });
 
+  it("同一db(client.tsのシングルトン共有)への2件目以降の呼び出しは新規リトライループを起こさず相乗りする(429対策の認証往復削減が2重ループで損なわれない)", async () => {
+    const db = fakeDb();
+    const onGiveUpA = vi.fn();
+    const onGiveUpB = vi.fn();
+    connectWithRetry(db as never, { maxAttempts: 2, baseDelayMs: 100, onGiveUp: onGiveUpA });
+    expect(db.connect).toHaveBeenCalledTimes(1);
+
+    // contributionMap.ts側が少し遅れて同じ(シングルトンの)dbに対して呼ぶ想定。
+    connectWithRetry(db as never, { maxAttempts: 2, baseDelayMs: 100, onGiveUp: onGiveUpB });
+    expect(db.connect).toHaveBeenCalledTimes(1); // 2件目の呼び出しでは新たにconnect()しない
+
+    db.emit("error"); // attempt=1<2のためリトライを1回スケジュール(ループは1本のみ)
+    await vi.advanceTimersByTimeAsync(100);
+    expect(db.connect).toHaveBeenCalledTimes(2); // 2重リトライなら4回になるはずが2回で済む
+
+    db.emit("error"); // attempt=2>=2 → give up、両方のonGiveUpが1回ずつ呼ばれる
+    expect(onGiveUpA).toHaveBeenCalledTimes(1);
+    expect(onGiveUpB).toHaveBeenCalledTimes(1);
+  });
+
   it("既に接続済みのdb(シングルトン共有時の2回目呼び出し)ではconnect()すら呼ばずリスナーも付けない", () => {
     const db = fakeDb();
     db.isConnected.mockReturnValue(true);

@@ -1267,7 +1267,7 @@ html, body {
   font-family: var(--font-sans); font-size: 13px; line-height: 1.5;
   border-radius: 8px; padding: 10px 14px; color: #1b1b22;
 }
-#cb-map .maplibregl-popup-content strong { color: #e8401e; }
+#cb-map .maplibregl-popup-content strong { color: #b42318; }
 .shelter-popup .maplibregl-popup-content { padding: 8px 10px; }
 .shelter-pop { min-width: 172px; color: #1b1b22; }
 .shelter-pop__name { font-weight: 800; font-size: 12px; line-height: 1.3; color: #1b1b22; }

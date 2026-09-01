@@ -226,6 +226,9 @@ export function initContributionMap(getLang: () => MapLang = () => "ja"): { refr
     mount.appendChild(title);
     mount.appendChild(legendEl);
     mount.appendChild(mapDiv);
+    // CodeRabbit指摘(PR#7): statusSpan作成直後にrenderStatus()を呼ばないと、
+    // スタイル読込〜最大5秒のジッター接続の間、状態文言が空欄のままになる。
+    renderStatus();
   }
   function render(): void {
     if (!map) return;

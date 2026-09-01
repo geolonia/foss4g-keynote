@@ -118,13 +118,22 @@ function renderErrors(
 
 /** ページ内の静的テキスト([data-en][data-ja]を持つ要素・<title>含む)を
  *  一括で現在の言語へ書き換える。動的テキスト(カウンタ・送信ボタン・地図
- *  トグル・エラー)はそれぞれの描画関数が呼び出し側で個別に再描画する。 */
+ *  トグル・エラー)はそれぞれの描画関数が呼び出し側で個別に再描画する。
+ *  入力欄のplaceholder([data-placeholder-en][data-placeholder-ja])も
+ *  ここで併せて切り替える(CodeRabbit指摘: 日本語切替後もplaceholderが
+ *  英語固定のままだった)。 */
 function applyStaticText(lang: Lang): void {
   document.documentElement.lang = lang;
   document.querySelectorAll<HTMLElement>("[data-en][data-ja]").forEach((el) => {
     const text = lang === "en" ? el.dataset.en : el.dataset.ja;
     if (text !== undefined) el.textContent = text;
   });
+  document
+    .querySelectorAll<HTMLInputElement>("[data-placeholder-en][data-placeholder-ja]")
+    .forEach((el) => {
+      const text = lang === "en" ? el.dataset.placeholderEn : el.dataset.placeholderJa;
+      if (text !== undefined) el.placeholder = text;
+    });
 }
 
 function setCount(lang: Lang, n: number): void {
@@ -217,7 +226,19 @@ export function initContributionPost(): void {
     const result = validateContribution(raw);
     lastErrors = result.errors;
     renderErrors(lang, raw, result.errors);
-    if (!result.ok) return;
+    if (!result.ok) {
+      // CodeRabbit指摘(PR#7): 成功/失敗直後の一時表示(is-ok/is-err・タイマー)を
+      // 引きずったまま無効な値で再送信すると、バリデーションエラーと
+      // 「投稿しました!」が同時に表示されてしまう。無効入力時は必ず
+      // idleへ戻してから中断する。
+      if (submitState === "ok" || submitState === "err") {
+        if (btnTimer) window.clearTimeout(btnTimer);
+        submitState = "idle";
+        btn?.classList.remove("is-ok", "is-err");
+        renderSubmitLabel();
+      }
+      return;
+    }
     const entity = buildContributionEntity(raw, { seeded: false, submittedAt: nowIso() });
     if (btnTimer) window.clearTimeout(btnTimer);
     submitState = "sending";

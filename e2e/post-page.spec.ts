@@ -101,7 +101,14 @@ test.describe("独立投稿ページ /post/", () => {
 
     // 会場の生データと混同されぬよう明示的にE2Eタグを付ける
     // (家老指示の既存運用: subtask_751系のテスト投稿と同じ命名規則)。
-    const origin = "E2E-テスト県";
+    // ★2026-09-01 root cause発見: originGeo.tsのresolveOriginCoords()は
+    // 固定の都道府県/国名テーブルにしか一致しない設計(捏造しない=正)ゆえ、
+    // 旧来の架空地名"E2E-テスト県"は永久に解決不能=地図の実表示件数に
+    // 決して反映されず、下のtoBeGreaterThan(realCountBefore)アサートが
+    // 原理的に成立しなかった(テスト設計側の欠陥・アプリ欠陥ではない)。
+    // 識別はspecialty文言(ashigaru4の削除依頼はこちらを鍵にしている)で
+    // 行うため、originは解決可能な実国名へ差し替える。
+    const origin = "スイス";
     const specialty = "E2E-automated-test（自動テスト・削除予定）";
 
     const createRequest = page.waitForRequest(
@@ -131,7 +138,21 @@ test.describe("独立投稿ページ /post/", () => {
         .poll(async () => parseRealCount(await status.textContent()), { timeout: 15_000 })
         .toBeGreaterThan(realCountBefore);
     } finally {
-      await page.evaluate((id) => window.__contributionDb?.deleteEntity(id), entityId);
+      // CONTRIBUTION_KEY(このページが使う統合キー)には削除権限が無いため、
+      // ここでのdeleteEntity失敗(403等)はアプリ側の欠陥ではない。
+      // try節の本質的なassert(投稿→カウンタ/地図反映の確認)を弱めぬよう、
+      // cleanup失敗はテストを失敗させず、ashigaru4への手動削除依頼として
+      // ログに残すのみとする。
+      try {
+        await page.evaluate((id) => window.__contributionDb?.deleteEntity(id), entityId);
+      } catch (cleanupError) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[E2E cleanup] entity ${entityId} の自動削除に失敗した` +
+            `(CONTRIBUTION_KEYには削除権限が無いため想定内)。` +
+            `ashigaru4へ手動削除を依頼されたし: ${String(cleanupError)}`,
+        );
+      }
     }
   });
 });

@@ -145,7 +145,6 @@ export function initContributionPost(): void {
 
   // 既定は英語(FOSS4G Globalは英語講演のため)。トグルボタンで日本語へ切替可能。
   let lang: Lang = "en";
-  let lastRaw: ContributionInput | null = null;
   let lastErrors: Partial<Record<ContributionField, string>> | null = null;
 
   let lastCount = 0;
@@ -206,7 +205,6 @@ export function initContributionPost(): void {
     ev.preventDefault();
     const raw = readInput();
     const result = validateContribution(raw);
-    lastRaw = raw;
     lastErrors = result.errors;
     renderErrors(lang, raw, result.errors);
     if (!result.ok) return;
@@ -224,7 +222,6 @@ export function initContributionPost(): void {
         btn?.classList.add("is-ok");
         renderSubmitLabel();
         form.reset();
-        lastRaw = null;
         lastErrors = null;
         btnTimer = window.setTimeout(() => {
           submitState = "idle";
@@ -258,7 +255,12 @@ export function initContributionPost(): void {
     if (map && mapToggleBtn) {
       mapToggleBtn.textContent = map.hidden ? STR[lang].mapOpen : STR[lang].mapClose;
     }
-    if (lastRaw && lastErrors) renderErrors(lang, lastRaw, lastErrors);
+    if (lastErrors) {
+      const raw = readInput();
+      const errors = validateContribution(raw).errors;
+      lastErrors = errors;
+      renderErrors(lang, raw, errors);
+    }
     mapApi.refreshLang();
   });
 }

@@ -71,6 +71,21 @@ test.describe("独立投稿ページ /post/", () => {
     await expect(page.locator("#cb-err-origin")).toHaveText(/Please enter where you're from/);
   });
 
+  test("言語切替: 送信失敗後に入力を修正してから切替えると、古いエラーを再表示しない(CodeRabbit指摘対応)", async ({
+    page,
+  }) => {
+    await page.goto("./post/");
+    await page.click("#cb-submit");
+    await expect(page.locator("#cb-err-origin")).toHaveText(/Please enter where you're from/);
+
+    // 入力を修正(有効化)してから言語を切り替える。
+    await page.locator("#cb-origin").fill("Quebec, Canada");
+    await page.click("#cb-lang-toggle");
+
+    // 修正済みの現在値で再検証されるため、古い「未入力」エラーは残らない。
+    await expect(page.locator("#cb-err-origin")).toHaveText("");
+  });
+
   test("言語切替: 地図内部(タイトル・凡例・状態文言)も現在の言語で描画される(CodeRabbit指摘対応)", async ({
     page,
   }) => {

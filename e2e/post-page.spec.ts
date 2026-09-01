@@ -155,6 +155,46 @@ test.describe("独立投稿ページ /post/", () => {
     await expect(status).toHaveText("Loading…");
   });
 
+  test("地図: 認証が一定時間内に解決しなければLoading…に永久固定されず明示的な失敗表示へ切り替わる(将軍裁定②・5件目の沈黙no-op対策)", async ({
+    page,
+  }) => {
+    // /auth/nonceを恒久的にハングさせ、connect()のリトライ(connectRetry.ts)を
+    // 何度繰り返しても真に解決しない状況を再現する。SDKの既知挙動として、
+    // 認証失敗時のconnect()はPromiseをrejectせず'error'を emitするだけで
+    // 終わるため、リトライしても状況が変わらない限り沈黙し続ける危険がある
+    // ——それをwatchdogが安全網として断ち切ることを実証する。
+    await page.route("**/auth/nonce", () => new Promise(() => {}));
+    await page.route(
+      (url) => url.pathname.endsWith("/ngsi-ld/v1/entities"),
+      (route) => (route.request().method() === "GET" ? new Promise(() => {}) : route.continue()),
+    );
+    await page.goto("./post/");
+    await page.click("#cb-map-toggle");
+    const status = page.locator("#cb-map .fb-chart__total");
+    await expect(status).toHaveText("Loading…");
+    // MAP_LOADING_WATCHDOG_MS(12s)+接続jitter(最大5s)を超えて待ち、
+    // Loading…に固定されないことを実証する。
+    await expect(status).toHaveText("Failed to load data", { timeout: 25_000 });
+  });
+
+  test("カウンタ: 認証が一定時間内に解決しなければ初期値のまま固定されず明示的な取得失敗表示へ切り替わる(将軍裁定②・5件目の沈黙no-op対策)", async ({
+    page,
+  }) => {
+    await page.route("**/auth/nonce", () => new Promise(() => {}));
+    await page.route(
+      (url) => url.pathname.endsWith("/ngsi-ld/v1/entities"),
+      (route) => (route.request().method() === "GET" ? new Promise(() => {}) : route.continue()),
+    );
+    await page.goto("./post/");
+    const count = page.locator("#cb-count");
+    // COUNT_WATCHDOG_MS(12s)+接続jitter(最大5s)を超えて待ち、
+    // 初期値のまま固定されないことを実証する。
+    await expect(count).toHaveText("Live count unavailable", { timeout: 25_000 });
+
+    await page.click("#cb-lang-toggle");
+    await expect(count).toHaveText("件数を取得できませんでした");
+  });
+
   test("出身地欄は日本限定ではない: datalistに国名が含まれ、国名を自由入力して検証を通過できる", async ({
     page,
   }) => {

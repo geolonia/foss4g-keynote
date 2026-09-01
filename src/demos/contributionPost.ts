@@ -21,6 +21,14 @@ import {
 } from "./contributionValidation";
 import { buildContributionEntity, CONTRIBUTION_MODEL } from "./contributionEntity";
 import { initContributionMap } from "./contributionMap";
+import { randomJitterMs } from "../lib/jitter";
+
+/* ControlPlane障害の根治(将軍裁定 2026-09-01): 200名が一斉に/post/を開くと、
+   カウンタ/WS購読のための初回トークン引き換えがControlPlaneHandlerへ一斉
+   殺到する。ページ読込直後のこの初回引き換えだけを0〜5秒のjitterで散らす
+   (投稿送信時のトークン取得はcreateEntity()が必要な時にensureToken()で
+   自前取得するため、このjitterの影響を受けず即座に行われる)。 */
+const CONNECT_JITTER_MAX_MS = 5000;
 
 /* ---- 言語切替(既定=英語・FOSS4G Globalは英語講演のため) ----
    contributionValidation.ts はデッキ側(contribution.ts)とも共有する
@@ -173,14 +181,16 @@ export function initContributionPost(): void {
   // 逆順(先に取得→後で購読)だと購読確立までの間の投稿を取りこぼす。
   // また件数は db.count() で取得する — db.getEntities({limit:1000}) だと
   // 1,000件超で総数が実数より少なく表示される。
-  db.on("entityCreated", () => refreshCount());
-  db.on("subscribed", () => fetchInitialCount());
-  db.on("error", (err) => console.warn("[contributionPost] ws", err));
-  db.subscribe({ entityTypes: [CONTRIBUTION_MODEL.type] });
-  db.connect().catch((err: unknown) => {
-    console.warn("[contributionPost] connect failed", err);
-    fetchInitialCount(); // WS不通でも初期表示だけは試みる(画面が空白のまま止まらぬよう)
-  });
+  window.setTimeout(() => {
+    db.on("entityCreated", () => refreshCount());
+    db.on("subscribed", () => fetchInitialCount());
+    db.on("error", (err) => console.warn("[contributionPost] ws", err));
+    db.subscribe({ entityTypes: [CONTRIBUTION_MODEL.type] });
+    db.connect().catch((err: unknown) => {
+      console.warn("[contributionPost] connect failed", err);
+      fetchInitialCount(); // WS不通でも初期表示だけは試みる(画面が空白のまま止まらぬよう)
+    });
+  }, randomJitterMs(CONNECT_JITTER_MAX_MS));
 
   const form = byId<HTMLFormElement>("cb-form");
   const btn = byId<HTMLButtonElement>("cb-submit");

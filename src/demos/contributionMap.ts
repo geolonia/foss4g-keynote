@@ -12,6 +12,7 @@ import type GeonicDB from "@geolonia/geonicdb-sdk";
 import { createContributionClient } from "../lib/client";
 import { byId, escapeHtml, whenIdle } from "../lib/dom";
 import { resolveOriginCoords } from "../lib/originGeo";
+import { randomJitterMs } from "../lib/jitter";
 
 /** cmd_751 のデータ契約（ashigaru4 subtask_751b 確定版・叩き台段階では暫定）。 */
 export const CONTRIBUTION_TYPE = "Contribution";
@@ -19,6 +20,7 @@ export const CONTRIBUTION_TYPE = "Contribution";
 // 会場（広島）を初期中心に。データが集まるまでは全国+海外を見渡せるズームにしておく。
 const VENUE_CENTER: [number, number] = [132.4596, 34.3963];
 const INITIAL_ZOOM = 4.2;
+const MAP_CONNECT_JITTER_MAX_MS = 5000;
 
 export interface ContributionFeatureProps {
   id: string;
@@ -367,8 +369,13 @@ export function initContributionMap(getLang: () => MapLang = () => "ja"): { refr
         });
         map.on("load", () => {
           addLayers();
-          db = createContributionClient();
-          loadAndSubscribe();
+          // ControlPlane障害の根治(将軍裁定 2026-09-01)・cb-map-toggleと同様、
+          // 「みなさん地図を開いてください」等で開室のタイミングが重なると
+          // トークン引き換えが同時多発しうるため、こちらも0〜5秒散らす。
+          window.setTimeout(() => {
+            db = createContributionClient();
+            loadAndSubscribe();
+          }, randomJitterMs(MAP_CONNECT_JITTER_MAX_MS));
         });
       })
       .catch((err: unknown) => {

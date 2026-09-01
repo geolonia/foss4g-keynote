@@ -1,10 +1,21 @@
 # subtask_751h addendum_20260901 準備分(④の測り方)。
 #
-# 目的: 本番相当の「200名・200IPが同時に1回ずつ投稿」を、単機IPの
+# 目的: 本番相当の「200名・200IPが1回ずつ投稿」を、単機IPの
 # PUBLIC_RATE_LIMIT.auth(IPあたり30/分+burst5)に自ら当たって偽429を
 # 出さずに再現する。GitHub Actions の matrix で N 個の独立した
 # GitHub-hosted runner(Azure上の別VM=別IPが一般的)を並列起動し、
 # 各jobがちょうど1回だけ createEntity() を叩く設計。
+#
+# ★正直な設計上の限界(CodeRabbitレビュー指摘・2026-09-01是正):
+#   - org GitHub Team planのActions同時実行上限=60(2026-09-01確認)ゆえ、
+#     「200件が一瞬に同時発火」は物理的に不可能。WAVE_SIZE=60単位で
+#     グループ化し、各waveの発火目標時刻をWAVE_GAP_MS(既定90秒)ずつ
+#     ずらす設計に変更した——「60件が真に同時発火するwaveが最大4回」
+#     という正直な粒度で測定する(multi-ip-loadtest-single.mjs参照)。
+#   - GitHub-hosted runnerの送信元IPが必ず一意である保証はない。各job
+#     が自身のIPをapi.ipify.orgで検出しRESULTログへ記録、fire完了後
+#     verify-ip-diversity jobがartifact経由で全ログを集約しユニークIP数を
+#     検証する(半数未満なら試験前提が崩れたとみなしworkflowを失敗させる)。
 #
 # 使い方(裁可・deploy後にワンショットで):
 #   1. このファイルを geonicdb-console/.github/workflows/ など「捨てて良い
@@ -13,16 +24,13 @@
 #      レビューは軽くて良い)。
 #   2. gh workflow run multi-ip-loadtest.yml --ref main \
 #        -f n=200 -f fire_at_epoch_ms=$(( $(date +%s%3N) + 480000 ))
-#      (dispatchから8分後を同時発火時刻に指定。60並列cap(GitHub Team
-#      plan)×4波でも全waveが発火時刻より前に起動を終えられる余裕を見た値。
-#      待ち行列が想定より詰まっていたら値を伸ばす)
-#   3. 完了後、各jobのログ(OK/NG・latency)をgh run viewで収集し集計。
+#      (dispatchから8分後を最初のwaveの発火時刻に指定。以降のwaveは
+#      WAVE_GAP_MSずつ後ろへずれる。待ち行列が想定より詰まっていたら
+#      両方の値を伸ばす)
+#   3. 完了後、各jobのログ(OK/NG・latency・ip)をgh run viewまたは
+#      verify-ip-diversity jobの集計出力で収集・確認する。
 #   4. 生成したentity(urn:ngsi-ld:Contribution:loadtest-*)はtenant_admin
 #      資格情報(Keychain)で一括削除。
-#
-# ★org GitHub Team planのActions同時実行上限=60(2026-09-01確認)。
-#   200並列を名乗るがGitHub側の物理的な同時発火はこの上限に縛られる点は
-#   申し送り事項——fire_at_epoch_msによる時刻同期でこの制約を吸収する設計。
 #
 # ★CONTRIBUTION_KEYはdeploy.ymlが既に使っているrepository secret
 #   `GEONICDB_CONTRIBUTION_KEY` をそのまま再利用する(新規secret設置は不要)。
@@ -52,9 +60,23 @@ jobs:
       fire_at: ${{ steps.gen.outputs.fire_at }}
     steps:
       - id: gen
+        env:
+          N_INPUT: ${{ inputs.n }}
+          FIRE_INPUT: ${{ inputs.fire_at_epoch_ms }}
         run: |
-          N="${{ inputs.n || '200' }}"
-          FIRE="${{ inputs.fire_at_epoch_ms }}"
+          N="${N_INPUT:-200}"
+          FIRE="$FIRE_INPUT"
+          case "$N" in
+            ''|*[!0-9]*) echo "n must be an integer" >&2; exit 1 ;;
+          esac
+          if [ "$N" -lt 1 ] || [ "$N" -gt 200 ]; then
+            echo "n must be between 1 and 200" >&2
+            exit 1
+          fi
+          if [ -n "$FIRE" ] && ! echo "$FIRE" | grep -qE '^[0-9]+$'; then
+            echo "fire_at_epoch_ms must be an integer" >&2
+            exit 1
+          fi
           if [ -z "$FIRE" ]; then
             FIRE=$(( $(date +%s%3N) + 300000 ))
           fi
@@ -81,10 +103,43 @@ jobs:
         env:
           FIRE_AT: ${{ needs.gen-matrix.outputs.fire_at }}
           IDX: ${{ matrix.i }}
+          WAVE_SIZE: "60"
+          WAVE_GAP_MS: "90000"
           # deploy.ymlのVITE_GEONICDB_CONTRIBUTION_KEYと同一のsecretを再利用
           # (新規secretを増やさない・値はこのファイルに書かない)。
           CONTRIBUTION_KEY: ${{ secrets.GEONICDB_CONTRIBUTION_KEY }}
           TENANT: foss4g_2026
           BASE_URL: https://geonicdb.geolonia.com
           ORIGIN: https://geolonia.github.io
-        run: node .github/scripts/multi-ip-loadtest-single.mjs
+        run: node .github/scripts/multi-ip-loadtest-single.mjs | tee result-${{ matrix.i }}.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result-${{ matrix.i }}
+          path: result-${{ matrix.i }}.log
+          retention-days: 1
+
+  verify-ip-diversity:
+    needs: fire
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: result-*
+          path: results
+          merge-multiple: true
+      - name: aggregate
+        run: |
+          cat results/*.log > all-results.log 2>/dev/null || true
+          total=$(grep -c '^RESULT ' all-results.log || echo 0)
+          unique_ips=$(grep -oE 'ip=[0-9a-fA-F:.]+' all-results.log | sort -u | wc -l | tr -d ' ')
+          echo "total_results=$total unique_source_ips=$unique_ips"
+          # GitHub-hosted runnerは別IPが一般的だが100%保証はないため、
+          # 「実質全件が同一IPだった」場合のみ試験の前提崩れとして検知する
+          # (閾値=総件数の半分。CodeRabbit指摘の「観測IP数がn未満なら失敗」
+          # を、共有プールでの偶発的重複を許容しつつ意味のある下限として調整)。
+          threshold=$(( (total + 1) / 2 ))
+          if [ "$total" -gt 0 ] && [ "$unique_ips" -lt "$threshold" ]; then
+            echo "::error::source IP diversity too low: $unique_ips unique IPs out of $total results (need >= $threshold). PUBLIC_RATE_LIMIT.auth の per-IP試験として意味を成さない。"
+            exit 1
+          fi

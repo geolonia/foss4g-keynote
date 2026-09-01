@@ -156,18 +156,24 @@ test.describe("独立投稿ページ /post/", () => {
     // よって statusCode を明示的に持ち帰り、403(=権限不足=想定内)のみ
     // 警告に留め、それ以外(ネットワーク障害・404等)は再送出してテストを
     // 失敗させる(CodeRabbit指摘1回目: cleanup失敗の握りつぶし過ぎを防止)。
-    const cleanupResult = await page.evaluate(async (id) => {
-      try {
-        await window.__contributionDb?.deleteEntity(id);
-        return { ok: true as const };
-      } catch (err) {
-        const statusCode =
-          typeof err === "object" && err !== null && "statusCode" in err
-            ? (err as { statusCode?: number }).statusCode
-            : undefined;
-        return { ok: false as const, statusCode, message: String(err) };
-      }
-    }, entityId);
+    // ★CodeRabbit指摘3回目: page.evaluate自体がブラウザ切断/execution
+    // context破棄でrejectした場合、コールバック内のtry/catchは効かず
+    // Node側でそのままthrowされ、既にあるsubmissionErrorを上書きしうる。
+    // .catch()でevaluate全体のrejectもcleanupResultと同じ形に正規化する。
+    const cleanupResult = await page
+      .evaluate(async (id) => {
+        try {
+          await window.__contributionDb?.deleteEntity(id);
+          return { ok: true as const };
+        } catch (err) {
+          const statusCode =
+            typeof err === "object" && err !== null && "statusCode" in err
+              ? (err as { statusCode?: number }).statusCode
+              : undefined;
+          return { ok: false as const, statusCode, message: String(err) };
+        }
+      }, entityId)
+      .catch((err) => ({ ok: false as const, statusCode: undefined, message: String(err) }));
 
     if (!cleanupResult.ok) {
       if (cleanupResult.statusCode === 403) {

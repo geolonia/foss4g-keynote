@@ -37,4 +37,26 @@ describe("resolveOriginCoords", () => {
     // @ts-expect-error - runtime guard for unexpected non-string input
     expect(resolveOriginCoords(undefined)).toBeNull();
   });
+
+  describe("「地名, 国名」形式のフォールバック(殿裁定 2026-08-31・PR#7 finding③)", () => {
+    it("resolves a sub-national region not in any table by falling back to the country part", () => {
+      // Bavaria単体は未収録。CodeRabbitがPR#7で指摘した地図から黙って消える投稿。
+      expect(resolveOriginCoords("Bavaria, Germany")).toEqual([10.4515, 51.1657]);
+    });
+
+    it("resolves the datalist's own domestic examples (previously silently unresolved)", () => {
+      // datalist自身の例示("Hiroshima, Japan"/"Kagawa, Japan")が、対応表に
+      // 完全一致キーが無いために解決できていなかった既存の穴。
+      expect(resolveOriginCoords("Hiroshima, Japan")).toEqual([132.4596, 34.3963]);
+      expect(resolveOriginCoords("Kagawa, Japan")).toEqual([134.0475, 34.3401]);
+    });
+
+    it("falls back to the country part for an arbitrary sub-national region", () => {
+      expect(resolveOriginCoords("Quebec, Canada")).toEqual([-106.3468, 56.1304]);
+    });
+
+    it("still returns null when neither part of a comma-separated input resolves", () => {
+      expect(resolveOriginCoords("Timbuktu, Mali")).toBeNull();
+    });
+  });
 });

@@ -44,6 +44,14 @@ describe("entityToFeature", () => {
     expect(f).toBeNull();
   });
 
+  it("does not silently drop a sub-national origin absent from the lookup table (PR#7 finding③)", () => {
+    // Bavaria単体は対応表に無いが、"地名, 国名"フォールバックで国レベルへ解決され、
+    // 地図から黙って消えることはない(殿裁定 2026-08-31)。
+    const f = entityToFeature(entity({ origin: { type: "Property", value: "Bavaria, Germany" } }));
+    expect(f).not.toBeNull();
+    expect(f?.geometry.coordinates).toEqual([10.4515, 51.1657]);
+  });
+
   it("returns null when the entity has no id", () => {
     const { id: _drop, ...rest } = entity();
     expect(entityToFeature(rest)).toBeNull();

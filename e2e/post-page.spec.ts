@@ -143,15 +143,38 @@ test.describe("独立投稿ページ /post/", () => {
       // try節の本質的なassert(投稿→カウンタ/地図反映の確認)を弱めぬよう、
       // cleanup失敗はテストを失敗させず、ashigaru4への手動削除依頼として
       // ログに残すのみとする。
-      try {
-        await page.evaluate((id) => window.__contributionDb?.deleteEntity(id), entityId);
-      } catch (cleanupError) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `[E2E cleanup] entity ${entityId} の自動削除に失敗した` +
-            `(CONTRIBUTION_KEYには削除権限が無いため想定内)。` +
-            `ashigaru4へ手動削除を依頼されたし: ${String(cleanupError)}`,
-        );
+      // page.evaluate は browser側の Error subclass(AuthorizationError等)を
+      // そのまま Node側へ instanceof 可能な形で渡さない(realmを跨ぐため)。
+      // よって statusCode を明示的に持ち帰り、403(=権限不足=想定内)のみ
+      // 警告に留め、それ以外(ネットワーク障害・404等)は再送出してテストを
+      // 失敗させる(CodeRabbit指摘: cleanup失敗の握りつぶし過ぎを防止)。
+      const cleanupResult = await page.evaluate(async (id) => {
+        try {
+          await window.__contributionDb?.deleteEntity(id);
+          return { ok: true as const };
+        } catch (err) {
+          const statusCode =
+            typeof err === "object" && err !== null && "statusCode" in err
+              ? (err as { statusCode?: number }).statusCode
+              : undefined;
+          return { ok: false as const, statusCode, message: String(err) };
+        }
+      }, entityId);
+
+      if (!cleanupResult.ok) {
+        if (cleanupResult.statusCode === 403) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[E2E cleanup] entity ${entityId} の自動削除に失敗した` +
+              `(CONTRIBUTION_KEYには削除権限が無いため想定内・403)。` +
+              `ashigaru4へ手動削除を依頼されたし: ${cleanupResult.message}`,
+          );
+        } else {
+          throw new Error(
+            `[E2E cleanup] entity ${entityId} の削除が403以外の理由で失敗した` +
+              `(想定外・テストデータが残存する可能性): ${cleanupResult.message}`,
+          );
+        }
       }
     }
   });

@@ -23,6 +23,7 @@ import { buildContributionEntity, CONTRIBUTION_MODEL } from "./contributionEntit
 import { initContributionMap } from "./contributionMap";
 import { randomJitterMs } from "../lib/jitter";
 import { connectWithRetry } from "../lib/connectRetry";
+import { createContributionEntityRawFetch } from "../lib/rawFetchCreateEntity";
 
 /* ControlPlane障害の根治(将軍裁定 2026-09-01): 200名が一斉に/post/を開くと、
    カウンタ/WS購読のための初回トークン引き換えがControlPlaneHandlerへ一斉
@@ -281,7 +282,11 @@ export function initContributionPost(): void {
       btn.classList.remove("is-ok", "is-err");
     }
     renderSubmitLabel();
-    db.createEntity(entity)
+    // ★SDKバイパス(将軍裁定 2026-09-01): db.createEntity()経由だとensureToken()が
+    // dpopRequiredの緩和を無視し無条件で/auth/nonce往復を強制するため、投稿の
+    // 送信だけはrawFetchCreateEntity.tsのX-Api-Key直付けfetchで行う(WS購読/
+    // カウンタ取得は読み取り系ゆえ従来通りSDK経由のまま)。
+    createContributionEntityRawFetch(entity)
       .then(() => {
         submitState = "ok";
         btn?.classList.add("is-ok");

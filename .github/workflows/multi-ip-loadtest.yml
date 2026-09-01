@@ -1,0 +1,90 @@
+# subtask_751h addendum_20260901 準備分(④の測り方)。
+#
+# 目的: 本番相当の「200名・200IPが同時に1回ずつ投稿」を、単機IPの
+# PUBLIC_RATE_LIMIT.auth(IPあたり30/分+burst5)に自ら当たって偽429を
+# 出さずに再現する。GitHub Actions の matrix で N 個の独立した
+# GitHub-hosted runner(Azure上の別VM=別IPが一般的)を並列起動し、
+# 各jobがちょうど1回だけ createEntity() を叩く設計。
+#
+# 使い方(裁可・deploy後にワンショットで):
+#   1. このファイルを geonicdb-console/.github/workflows/ など「捨てて良い
+#      使い捨てリポ」ではなく foss4g-keynote リポの .github/workflows/へ
+#      配置(worktree必須・PR経由でmainへ、テスト専用ファイルゆえ
+#      レビューは軽くて良い)。
+#   2. gh workflow run multi-ip-loadtest.yml --ref main \
+#        -f n=200 -f fire_at_epoch_ms=$(( $(date +%s%3N) + 480000 ))
+#      (dispatchから8分後を同時発火時刻に指定。60並列cap(GitHub Team
+#      plan)×4波でも全waveが発火時刻より前に起動を終えられる余裕を見た値。
+#      待ち行列が想定より詰まっていたら値を伸ばす)
+#   3. 完了後、各jobのログ(OK/NG・latency)をgh run viewで収集し集計。
+#   4. 生成したentity(urn:ngsi-ld:Contribution:loadtest-*)はtenant_admin
+#      資格情報(Keychain)で一括削除。
+#
+# ★org GitHub Team planのActions同時実行上限=60(2026-09-01確認)。
+#   200並列を名乗るがGitHub側の物理的な同時発火はこの上限に縛られる点は
+#   申し送り事項——fire_at_epoch_msによる時刻同期でこの制約を吸収する設計。
+#
+# ★CONTRIBUTION_KEYはdeploy.ymlが既に使っているrepository secret
+#   `GEONICDB_CONTRIBUTION_KEY` をそのまま再利用する(新規secret設置は不要)。
+
+name: multi-ip-loadtest (subtask_751h・使い捨て検証用)
+
+on:
+  workflow_dispatch:
+    inputs:
+      n:
+        description: "並列数(既定200)"
+        required: false
+        default: "200"
+      fire_at_epoch_ms:
+        description: "全jobが同時に発火するUnix epoch(ミリ秒)。未指定ならdispatchの5分後"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  gen-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+      fire_at: ${{ steps.gen.outputs.fire_at }}
+    steps:
+      - id: gen
+        run: |
+          N="${{ inputs.n || '200' }}"
+          FIRE="${{ inputs.fire_at_epoch_ms }}"
+          if [ -z "$FIRE" ]; then
+            FIRE=$(( $(date +%s%3N) + 300000 ))
+          fi
+          IDX=$(seq 0 $((N - 1)) | jq -R . | jq -s -c .)
+          echo "matrix={\"i\":$IDX}" >> "$GITHUB_OUTPUT"
+          echo "fire_at=$FIRE" >> "$GITHUB_OUTPUT"
+
+  fire:
+    needs: gen-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 60
+      matrix: ${{ fromJson(needs.gen-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm install @geolonia/geonicdb-sdk@0.18.1 --no-save
+      - name: fire-one-request
+        env:
+          FIRE_AT: ${{ needs.gen-matrix.outputs.fire_at }}
+          IDX: ${{ matrix.i }}
+          # deploy.ymlのVITE_GEONICDB_CONTRIBUTION_KEYと同一のsecretを再利用
+          # (新規secretを増やさない・値はこのファイルに書かない)。
+          CONTRIBUTION_KEY: ${{ secrets.GEONICDB_CONTRIBUTION_KEY }}
+          TENANT: foss4g_2026
+          BASE_URL: https://geonicdb.geolonia.com
+          ORIGIN: https://geolonia.github.io
+        run: node .github/scripts/multi-ip-loadtest-single.mjs

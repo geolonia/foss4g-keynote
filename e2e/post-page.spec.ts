@@ -61,6 +61,11 @@ test.describe("独立投稿ページ /post/", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "ja");
     await expect(page.locator("#cb-submit")).toHaveText("▶ 投稿する");
 
+    // 入力欄のplaceholderも言語切替に追従する(CodeRabbit指摘対応・cb-hiddenSpot漏れの再発防止)。
+    await expect(page.locator("#cb-origin")).toHaveAttribute("placeholder", /香川県/);
+    await expect(page.locator("#cb-specialty")).toHaveAttribute("placeholder", /讃岐うどん/);
+    await expect(page.locator("#cb-hiddenSpot")).toHaveAttribute("placeholder", /まだ地図に載っていない場所/);
+
     // 動的レンダリングのエラーメッセージも切り替わる。
     await page.click("#cb-submit");
     await expect(page.locator("#cb-err-origin")).toHaveText(/出身地を入力してください/);
@@ -69,6 +74,9 @@ test.describe("独立投稿ページ /post/", () => {
     await page.click("#cb-lang-toggle");
     await expect(page.locator("h1")).toHaveText(/Your voice becomes data on the map/);
     await expect(page.locator("#cb-err-origin")).toHaveText(/Please enter where you're from/);
+    await expect(page.locator("#cb-origin")).toHaveAttribute("placeholder", /Kagawa, Japan/);
+    await expect(page.locator("#cb-specialty")).toHaveAttribute("placeholder", /Sanuki udon/);
+    await expect(page.locator("#cb-hiddenSpot")).toHaveAttribute("placeholder", /place not on the map yet/);
   });
 
   test("言語切替: 送信失敗後に入力を修正してから切替えると、古いエラーを再表示しない(CodeRabbit指摘対応)", async ({

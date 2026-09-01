@@ -12,6 +12,7 @@ import type GeonicDB from "@geolonia/geonicdb-sdk";
 import { createContributionClient } from "../lib/client";
 import { byId, escapeHtml, whenIdle } from "../lib/dom";
 import { resolveOriginCoords } from "../lib/originGeo";
+import { randomJitterMs } from "../lib/jitter";
 
 /** cmd_751 のデータ契約（ashigaru4 subtask_751b 確定版・叩き台段階では暫定）。 */
 export const CONTRIBUTION_TYPE = "Contribution";
@@ -19,6 +20,7 @@ export const CONTRIBUTION_TYPE = "Contribution";
 // 会場（広島）を初期中心に。データが集まるまでは全国+海外を見渡せるズームにしておく。
 const VENUE_CENTER: [number, number] = [132.4596, 34.3963];
 const INITIAL_ZOOM = 4.2;
+const MAP_CONNECT_JITTER_MAX_MS = 5000;
 
 export interface ContributionFeatureProps {
   id: string;
@@ -94,10 +96,52 @@ export function buildFeatureCollection(
    =================================================================== */
 
 type AnyMap = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+type MapLang = "en" | "ja";
 
-export function initContributionMap(): void {
+/* CodeRabbit指摘(PR#7): 地図タイトル・凡例・状態文言が日本語固定だと、
+   英語既定の/postページで地図内部だけ日本語になる。ここでも
+   contributionPost.tsと同じ「呼び出し側の言語取得関数を受け取る」方式で
+   最小限に対応する(既定はja=既存の呼び出し元が無指定でも従来通りの挙動)。 */
+const MAP_STR = {
+  en: {
+    title: "Venue Map",
+    legendReal: "Venue submissions",
+    legendSeeded: "Seed data (pre-loaded)",
+    seededTag: " (seed)",
+    loading: "Loading…",
+    fetchFailed: "Failed to load data",
+    libFailed: "Failed to load the map library",
+    styleFailed: (msg: string) => "Failed to load map style: " + msg,
+    status: (realN: number, seededN: number, skipped: number) =>
+      "Showing on map: " +
+      realN +
+      " (+" +
+      seededN +
+      " seed)" +
+      (skipped > 0 ? " / skipped " + skipped + " (origin unresolved)" : ""),
+  },
+  ja: {
+    title: "会場地図",
+    legendReal: "会場の投稿",
+    legendSeeded: "仕込み(事前投入)",
+    seededTag: "（仕込み）",
+    loading: "読み込み中…",
+    fetchFailed: "データ取得に失敗しました",
+    libFailed: "地図ライブラリの読み込みに失敗しました",
+    styleFailed: (msg: string) => "地図スタイルの読み込みに失敗: " + msg,
+    status: (realN: number, seededN: number, skipped: number) =>
+      "地図に表示中: " +
+      realN +
+      " 件（+仕込み " +
+      seededN +
+      " 件）" +
+      (skipped > 0 ? " ／ 出身地未解決のためスキップ " + skipped + " 件" : ""),
+  },
+} as const;
+
+export function initContributionMap(getLang: () => MapLang = () => "ja"): { refreshLang: () => void } {
   const container = byId("cb-map");
-  if (!container) return; // 未結線ならここで終了（結合待ち）
+  if (!container) return { refreshLang: () => {} }; // 未結線ならここで終了(結合待ち)
   const mount: HTMLElement = container; // 以降のクロージャで non-null を保証する
 
   let GL: GeoloniaNamespace | null = null;
@@ -107,35 +151,84 @@ export function initContributionMap(): void {
   const entities: Record<string, Record<string, unknown>> = Object.create(null);
   let started = false;
   let dataStarted = false;
-  let skipped = 0; // origin未解決で描画から外れた件数（正直に見せる）
+  let skipped = 0; // origin未解決で描画から外れた件数(正直に見せる)
   let statusSpan: HTMLElement | null = null;
+  let titleLabelSpan: HTMLElement | null = null;
+  let legendEl: HTMLElement | null = null;
 
   function setStatus(msg: string): void {
     if (statusSpan) statusSpan.textContent = msg;
   }
 
-  /** タブ内 DOM を組み立てる（初回のみ）。map.ts 同様のタイトル/凡例パターンに倣う。 */
+  /* CodeRabbit指摘(PR#7): refreshLang()がrenderLegend/renderのみを再実行すると、
+     loading/fetchFailed/libFailed/styleFailedの各状態文言はmapが無い/データ未取得
+     のままrender()が早期returnし、切替前の言語のまま取り残される。表示中の状態種別
+     を保持し、切替時はその状態からstatus文言を再構成する。 */
+  type MapStatusState =
+    | { kind: "loading" }
+    | { kind: "fetchFailed" }
+    | { kind: "libFailed" }
+    | { kind: "styleFailed"; msg: string }
+    | { kind: "loaded" };
+  let statusState: MapStatusState = { kind: "loading" };
+
+  function renderStatus(): void {
+    const s = MAP_STR[getLang()];
+    switch (statusState.kind) {
+      case "loading":
+        setStatus(s.loading);
+        break;
+      case "fetchFailed":
+        setStatus(s.fetchFailed);
+        break;
+      case "libFailed":
+        setStatus(s.libFailed);
+        break;
+      case "styleFailed":
+        setStatus(s.styleFailed(statusState.msg));
+        break;
+      case "loaded":
+        render();
+        break;
+    }
+  }
+
+  function renderLegend(): void {
+    if (!legendEl) return;
+    const s = MAP_STR[getLang()];
+    legendEl.innerHTML =
+      '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#39d6c6;margin-right:4px;"></span>' +
+      s.legendReal +
+      '　<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#6b7a90;margin-right:4px;"></span>' +
+      s.legendSeeded;
+  }
+
+  /** タブ内 DOM を組み立てる(初回のみ)。map.ts 同様のタイトル/凡例パターンに倣う。 */
   function buildDom(): void {
     if (mapDiv) return;
     const title = document.createElement("div");
     title.className = "fb-chart__title";
-    title.textContent = "会場地図";
+    titleLabelSpan = document.createElement("span");
+    titleLabelSpan.textContent = MAP_STR[getLang()].title;
     statusSpan = document.createElement("span");
     statusSpan.className = "fb-chart__total";
+    title.appendChild(titleLabelSpan);
     title.appendChild(statusSpan);
 
-    const legend = document.createElement("div");
-    legend.style.cssText = "font-size:11px;color:rgba(255,255,255,.6);margin:2px 0 8px;";
-    legend.innerHTML =
-      '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#39d6c6;margin-right:4px;"></span>会場の投稿' +
-      '　<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#6b7a90;margin-right:4px;"></span>仕込み(事前投入)';
+    legendEl = document.createElement("div");
+    legendEl.className = "fb-chart__legend"; // e2e/自動テストからの安定した参照用(スタイルはinlineで別途指定)
+    legendEl.style.cssText = "font-size:11px;color:rgba(255,255,255,.6);margin:2px 0 8px;";
+    renderLegend();
 
     mapDiv = document.createElement("div");
     mapDiv.style.cssText = "flex:1 1 auto;min-height:220px;border-radius:8px;overflow:hidden;position:relative;";
 
     mount.appendChild(title);
-    mount.appendChild(legend);
+    mount.appendChild(legendEl);
     mount.appendChild(mapDiv);
+    // CodeRabbit指摘(PR#7): statusSpan作成直後にrenderStatus()を呼ばないと、
+    // スタイル読込〜最大5秒のジッター接続の間、状態文言が空欄のままになる。
+    renderStatus();
   }
   function render(): void {
     if (!map) return;
@@ -146,14 +239,18 @@ export function initContributionMap(): void {
     if (src) src.setData(fc);
     const seededN = fc.features.filter((f) => f.properties.seeded).length;
     const realN = fc.features.length - seededN;
-    setStatus(
-      "地図に表示中: " +
-        realN +
-        " 件（+仕込み " +
-        seededN +
-        " 件）" +
-        (skipped > 0 ? " ／ 出身地未解決のためスキップ " + skipped + " 件" : ""),
-    );
+    statusState = { kind: "loaded" };
+    setStatus(MAP_STR[getLang()].status(realN, seededN, skipped));
+  }
+
+  /** 言語トグル時に呼び出し側(contributionPost.ts)から叩く。既に描画済みの
+   *  タイトル/凡例/状態文言を現在の言語へ再描画する(CodeRabbit指摘対応)。
+   *  ポップアップの(仕込み)表記はクリック時にgetLang()を直接参照するため
+   *  ここでの再描画は不要。 */
+  function refreshLang(): void {
+    if (titleLabelSpan) titleLabelSpan.textContent = MAP_STR[getLang()].title;
+    renderLegend();
+    renderStatus();
   }
 
   function addLayers(): void {
@@ -193,7 +290,7 @@ export function initContributionMap(): void {
     function showPopup(f: any): void {
       const p = f.properties;
       const c = f.geometry.coordinates.slice();
-      const tag = p.seeded ? "（仕込み）" : "";
+      const tag = p.seeded ? MAP_STR[getLang()].seededTag : "";
       // origin/specialty は会場からの未認証入力ゆえ、popup HTML へ埋め込む前に必ずエスケープする。
       const html =
         "<strong>" +
@@ -223,14 +320,16 @@ export function initContributionMap(): void {
       })
       .catch((err: unknown) => {
         console.error("[contributionMap]", err);
-        setStatus("データ取得に失敗しました");
+        statusState = { kind: "fetchFailed" };
+        setStatus(MAP_STR[getLang()].fetchFailed);
       });
   }
 
   function loadAndSubscribe(): void {
     if (dataStarted) return;
     dataStarted = true;
-    setStatus("読み込み中…");
+    statusState = { kind: "loading" };
+    setStatus(MAP_STR[getLang()].loading);
     // ★先にentityCreated購読を確立してから初期取得する（取得〜購読確立の間に
     // 届いた投稿を取りこぼさぬため）。idベースの上書きゆえ二重計上はしない。
     db!.on("entityCreated", (evt: any) => {
@@ -255,7 +354,8 @@ export function initContributionMap(): void {
     buildDom();
     GL = window.geolonia || window.maplibregl || null;
     if (!GL || typeof GL.Map !== "function") {
-      setStatus("地図ライブラリの読み込みに失敗しました");
+      statusState = { kind: "libFailed" };
+      setStatus(MAP_STR[getLang()].libFailed);
       return;
     }
     const styleUrl = import.meta.env.BASE_URL + "assets/map-style.json";
@@ -272,14 +372,19 @@ export function initContributionMap(): void {
         });
         map.on("load", () => {
           addLayers();
-          db = createContributionClient();
-          loadAndSubscribe();
+          // ControlPlane障害の根治(将軍裁定 2026-09-01)・cb-map-toggleと同様、
+          // 「みなさん地図を開いてください」等で開室のタイミングが重なると
+          // トークン引き換えが同時多発しうるため、こちらも0〜5秒散らす。
+          window.setTimeout(() => {
+            db = createContributionClient();
+            loadAndSubscribe();
+          }, randomJitterMs(MAP_CONNECT_JITTER_MAX_MS));
         });
       })
       .catch((err: unknown) => {
-        setStatus(
-          "地図スタイルの読み込みに失敗: " + (err instanceof Error ? err.message : String(err)),
-        );
+        const msg = err instanceof Error ? err.message : String(err);
+        statusState = { kind: "styleFailed", msg };
+        setStatus(MAP_STR[getLang()].styleFailed(msg));
       });
   }
 
@@ -296,4 +401,6 @@ export function initContributionMap(): void {
       if (m.attributeName === "hidden" && !container.hidden) onVisible();
     }
   }).observe(container, { attributes: true, attributeFilter: ["hidden"] });
+
+  return { refreshLang };
 }

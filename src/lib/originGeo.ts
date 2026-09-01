@@ -169,12 +169,8 @@ for (const p of PREFECTURE_NAMES) {
   PREFECTURE_ROMAJI_TO_CODE[p.romaji] = p.code;
 }
 
-/** 出身地の自由入力（コード・和名・romaji・国名）を [lng, lat] へ解決する。未知の入力は null。 */
-export function resolveOriginCoords(origin: string): LngLat | null {
-  if (typeof origin !== "string") return null;
-  const raw = origin.trim();
-  if (!raw) return null;
-
+/** 単一トークン（都道府県コード/和名/romaji/国名のいずれか一つ）を座標へ解決する。 */
+function resolveToken(raw: string): LngLat | null {
   if (/^\d{1,2}$/.test(raw)) {
     const code = raw.padStart(2, "0");
     const hit = PREFECTURE_BY_CODE[code];
@@ -190,6 +186,32 @@ export function resolveOriginCoords(origin: string): LngLat | null {
 
   const country = COUNTRY_COORDS[lower] ?? COUNTRY_COORDS[raw];
   if (country) return country;
+
+  return null;
+}
+
+/** 出身地の自由入力（コード・和名・romaji・国名）を [lng, lat] へ解決する。未知の入力は null。 */
+export function resolveOriginCoords(origin: string): LngLat | null {
+  if (typeof origin !== "string") return null;
+  const raw = origin.trim();
+  if (!raw) return null;
+
+  const direct = resolveToken(raw);
+  if (direct) return direct;
+
+  /* ★固定対応表の弱点(殿裁定 2026-08-31・PR#7 finding③): "Bavaria, Germany" の
+     ように完全一致キーが無い入力を、表へ1件ずつ足して塞ぐのはいたちごっこで
+     終わらない。「地名, 国名」形式の入力は、カンマ区切りの各部分を左(より
+     具体的)から順に単独解決を試み、どれも当たらなければ最後の部分(通常は
+     国名)へフォールバックする。捏造ではなく、実在するより粗い粒度の地点へ
+     落とすだけであり、"Hiroshima, Japan"/"Kagawa, Japan" のような
+     datalist自身の例示すら解決できていなかった既存の穴も同時に塞ぐ。 */
+  if (raw.includes(",")) {
+    for (const part of raw.split(",").map((p) => p.trim()).filter(Boolean)) {
+      const hit = resolveToken(part);
+      if (hit) return hit;
+    }
+  }
 
   return null;
 }

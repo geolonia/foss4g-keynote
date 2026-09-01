@@ -225,7 +225,14 @@ test.describe("独立投稿ページ /post/", () => {
 
     // 会場の生データと混同されぬよう明示的にE2Eタグを付ける
     // (家老指示の既存運用: subtask_751系のテスト投稿と同じ命名規則)。
-    const origin = "E2E-テスト県";
+    // ★2026-09-01 root cause発見: originGeo.tsのresolveOriginCoords()は
+    // 固定の都道府県/国名テーブルにしか一致しない設計(捏造しない=正)ゆえ、
+    // 旧来の架空地名"E2E-テスト県"は永久に解決不能=地図の実表示件数に
+    // 決して反映されず、下のtoBeGreaterThan(realCountBefore)アサートが
+    // 原理的に成立しなかった(テスト設計側の欠陥・アプリ欠陥ではない)。
+    // 識別はspecialty文言(ashigaru4の削除依頼はこちらを鍵にしている)で
+    // 行うため、originは解決可能な実国名へ差し替える。
+    const origin = "スイス";
     const specialty = "E2E-automated-test（自動テスト・削除予定）";
 
     const createRequest = page.waitForRequest(
@@ -241,6 +248,11 @@ test.describe("独立投稿ページ /post/", () => {
     const created = await createRequest;
     const entityId = (created.postDataJSON() as { id: string }).id;
 
+    // CodeRabbit指摘(2回目): finally節でthrowすると、try節のassert失敗
+    // (=本来報告すべきテスト失敗)をcleanup例外が上書きしてしまう
+    // (noUnsafeFinally)。よってfinallyは使わず、try節の例外を変数に
+    // 保持した上でcleanupを常に実行し、最後にどちらを投げるか判定する。
+    let submissionError: unknown;
     try {
       await expect(page.locator("#cb-submit")).toHaveText(/Submitted! Thank you/, { timeout: 15_000 });
 
@@ -254,8 +266,63 @@ test.describe("独立投稿ページ /post/", () => {
       await expect
         .poll(async () => parseRealCount(await status.textContent()), { timeout: 15_000 })
         .toBeGreaterThan(realCountBefore);
-    } finally {
-      await page.evaluate((id) => window.__contributionDb?.deleteEntity(id), entityId);
+    } catch (err) {
+      submissionError = err;
     }
+
+    // CONTRIBUTION_KEY(このページが使う統合キー)には削除権限が無いため、
+    // ここでのdeleteEntity失敗(403等)はアプリ側の欠陥ではない。
+    // 上のassert(投稿→カウンタ/地図反映の確認)を弱めぬよう、
+    // cleanup失敗はテストを失敗させず、ashigaru4への手動削除依頼として
+    // ログに残すのみとする。
+    // page.evaluate は browser側の Error subclass(AuthorizationError等)を
+    // そのまま Node側へ instanceof 可能な形で渡さない(realmを跨ぐため)。
+    // よって statusCode を明示的に持ち帰り、403(=権限不足=想定内)のみ
+    // 警告に留め、それ以外(ネットワーク障害・404等)は再送出してテストを
+    // 失敗させる(CodeRabbit指摘1回目: cleanup失敗の握りつぶし過ぎを防止)。
+    // ★CodeRabbit指摘3回目: page.evaluate自体がブラウザ切断/execution
+    // context破棄でrejectした場合、コールバック内のtry/catchは効かず
+    // Node側でそのままthrowされ、既にあるsubmissionErrorを上書きしうる。
+    // .catch()でevaluate全体のrejectもcleanupResultと同じ形に正規化する。
+    const cleanupResult = await page
+      .evaluate(async (id) => {
+        try {
+          await window.__contributionDb?.deleteEntity(id);
+          return { ok: true as const };
+        } catch (err) {
+          const statusCode =
+            typeof err === "object" && err !== null && "statusCode" in err
+              ? (err as { statusCode?: number }).statusCode
+              : undefined;
+          return { ok: false as const, statusCode, message: String(err) };
+        }
+      }, entityId)
+      .catch((err) => ({ ok: false as const, statusCode: undefined, message: String(err) }));
+
+    if (!cleanupResult.ok) {
+      if (cleanupResult.statusCode === 403) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[E2E cleanup] entity ${entityId} の自動削除に失敗した` +
+            `(CONTRIBUTION_KEYには削除権限が無いため想定内・403)。` +
+            `ashigaru4へ手動削除を依頼されたし: ${cleanupResult.message}`,
+        );
+      } else if (submissionError) {
+        // 元のassert失敗を優先して報告する。cleanup失敗は握りつぶさず
+        // 併記のみ行う(元の例外を上書きしない)。
+        // eslint-disable-next-line no-console
+        console.error(
+          `[E2E cleanup] entity ${entityId} の削除も403以外の理由で失敗した` +
+            `(元のテスト失敗に追加で発生・テストデータが残存する可能性): ${cleanupResult.message}`,
+        );
+      } else {
+        submissionError = new Error(
+          `[E2E cleanup] entity ${entityId} の削除が403以外の理由で失敗した` +
+            `(想定外・テストデータが残存する可能性): ${cleanupResult.message}`,
+        );
+      }
+    }
+
+    if (submissionError) throw submissionError;
   });
 });

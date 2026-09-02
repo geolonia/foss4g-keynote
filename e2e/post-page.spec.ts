@@ -434,6 +434,34 @@ test.describe("独立投稿ページ /post/", () => {
       await expect(page.locator("#cb-err-origin")).toHaveText("");
       await expect(page.locator("#cb-err-specialty")).toHaveText("");
     });
+
+    test("地図ピッカー: 正常系(失敗状態を経ない)でも、タップ前のタイトル・タップ後の選択済み文言の両方が言語切替に追随する", async ({
+      page,
+    }) => {
+      // ★addendum_20260902_2224調査: 「地図ピッカーの言語切替が届かない」という
+      // 報告の再現を試みたが、既存のrefreshLang()機構(PR#14)は失敗系のテスト
+      // (386行目〜)でのみ実証されていた。正常系(ready→picked)の往復は未検証
+      // だったため、この空白を埋める形で追加する(将軍実測との突合は家老へ報告)。
+      await page.goto("./post/");
+      const status = page.locator("#cb-origin-map .fb-chart__title");
+      await expect(status).toHaveText("Tap the map to select where you're from", {
+        timeout: 15_000,
+      });
+
+      // ready(タップ前)状態での言語切替
+      await page.click("#cb-lang-toggle");
+      await expect(status).toHaveText("タップして出身地を選んでください");
+      await page.click("#cb-lang-toggle");
+      await expect(status).toHaveText("Tap the map to select where you're from");
+
+      // タップ後(選択済み状態)での言語切替
+      await tapPickerMapCenter(page);
+      await expect(status).toHaveText(/^Pinned: /);
+      await page.click("#cb-lang-toggle");
+      await expect(status).toHaveText(/^選択済み: /);
+      await page.click("#cb-lang-toggle");
+      await expect(status).toHaveText(/^Pinned: /);
+    });
   });
 
   // Contribution integration key の allowedOrigins は http://localhost:8745 を含まない

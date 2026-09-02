@@ -14,7 +14,11 @@ import { byId } from "../lib/dom";
 import { formatCoordOrigin } from "../lib/originGeo";
 
 const VENUE_CENTER: [number, number] = [132.4596, 34.3963];
-const PICKER_ZOOM = 4.2;
+/* ★殿ご下命(2026-09-02 22:23): 初期ズームを日本寄りの4.2から世界全体が
+   見える1.5相当へ変更。地名は文字欄(#cb-origin)が担保するため、地図の
+   ピンは大まかな位置で足りる——海外の参加者が縮小・移動を強いられず、
+   日本の参加者も一度つまむだけで会場付近へ寄れる。 */
+const PICKER_ZOOM = 1.5;
 /* ★沈黙no-op対策(このリポジトリで既出6件目相当・#cb-mapのMAP_LOADING_WATCHDOG_MSに倣う):
    WebGL非対応・タブがバックグラウンドに回った等の理由で"idle"イベントが
    一度も発火しない場合、"Loading map…"に永久固定させず、文字入力欄

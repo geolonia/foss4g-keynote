@@ -174,6 +174,58 @@ test.describe("独立投稿ページ /post/", () => {
     await expect(pickerCanvas).toHaveCSS("touch-action", "none");
   });
 
+  test.describe("実タッチスワイプでのスクロール検証(CodeRabbit指摘対応・PR#21)", () => {
+    // CodeRabbit指摘: touch-actionのCSS値だけでは「実際にスクロールできるか」を
+    // 証明しない(ブラウザの内部実装次第でCSSと実挙動が食い違いうる)。この
+    // describeブロックだけhasTouch: trueを付与し(isMobile: trueは付けない・
+    // 付けるとheadless chromiumで落ちる環境があったため他プロジェクト設定では
+    // 意図的に外している)、実タッチイベントで会場地図canvas上をスワイプして
+    // スクロール位置が実際に変化することまで確認する。
+    //
+    // ★post/index.htmlはhtml/bodyともheight固定+overflow-y: autoで、実際の
+    // スクロールコンテナはwindow(document.documentElement)ではなくbody要素
+    // 自身である(window.scrollYは常に0のまま・body.scrollTopが動く)。手動
+    // 検証で確認済み——window.scrollYを見るテストは常に失敗する。
+    test.use({ hasTouch: true });
+
+    test("会場地図canvas上を指でスワイプするとページがスクロールする", async ({ page, browserName }) => {
+      test.skip(browserName !== "chromium", "hasTouchの実タッチ挙動検証はchromium限定");
+      await page.goto("./post/");
+      await page.click("#cb-map-toggle");
+      const venueCanvas = page.locator("#cb-map canvas");
+      await expect(venueCanvas).toBeVisible({ timeout: 15_000 });
+
+      // canvasをviewport中央へ寄せる(auto-scrollで端に張り付くと、スワイプで
+      // 動ける余地が片方向にしか残らないため)。
+      await venueCanvas.evaluate((el) => el.scrollIntoView({ block: "center" }));
+      const scrollTopBefore = await page.evaluate(() => document.body.scrollTop);
+
+      const box = await venueCanvas.boundingBox();
+      if (!box) throw new Error("venueCanvas boundingBox not available");
+      const x = box.x + box.width / 2;
+      const startY = box.y + box.height / 2;
+      // 既にスクロール余地が残っている方向(上に伸びているならタッチを下方向へ
+      // 動かしscrollTopを減らす・端で余地が無ければ逆方向)へスワイプする。
+      const direction = scrollTopBefore > 0 ? 1 : -1;
+
+      const client = await page.context().newCDPSession(page);
+      const touchPoints = (y: number) => [{ x, y, force: 1, id: 1 }];
+      await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: touchPoints(startY) });
+      for (let i = 1; i <= 15; i++) {
+        await client.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: touchPoints(startY + direction * i * 10),
+        });
+        await page.waitForTimeout(30);
+      }
+      await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+
+      await expect
+        .poll(() => page.evaluate(() => document.body.scrollTop), { timeout: 5_000 })
+        .not.toBe(scrollTopBefore);
+    });
+  });
+
   test("言語切替: 送信中/失敗状態でも切替後の言語で正しく再描画される(CodeRabbit指摘対応)", async ({
     page,
   }) => {

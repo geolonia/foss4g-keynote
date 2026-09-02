@@ -22,6 +22,7 @@ import {
 import { buildContributionEntity, CONTRIBUTION_MODEL } from "./contributionEntity";
 import { initContributionMap } from "./contributionMap";
 import { initOriginMapPicker } from "./originMapPicker";
+import { geocodePlace } from "../lib/geocode";
 import { randomJitterMs } from "../lib/jitter";
 import { connectWithRetry } from "../lib/connectRetry";
 
@@ -185,6 +186,11 @@ export function initContributionPost(): void {
   // 既定は英語(FOSS4G Globalは英語講演のため)。トグルボタンで日本語へ切替可能。
   let lang: Lang = "en";
   let lastErrors: Partial<Record<ContributionField, string>> | null = null;
+  // cmd_754【4】: 直前にジオコーディング済みの文字列(同一語の連続問い合わせを
+  // 防ぐdedup用)。投稿成功時にoriginPicker.clearPin()と揃えてリセットする
+  // ——さもないと次の来場者が同じ地名(例"Japan")を入力しても再検索されず、
+  // 地図が飛ばない(文字欄自体の送信内容には影響しないが、体験として直す)。
+  let lastGeocodedQuery = "";
 
   let lastCount = 0;
   let countResolved = false; // db.count()が一度でも成功したか(watchdogの判定に使う)
@@ -320,6 +326,7 @@ export function initContributionPost(): void {
         const originCoordEl = byId<HTMLInputElement>("cb-origin-coord");
         if (originCoordEl) originCoordEl.value = "";
         originPicker.clearPin(); // 次の投稿が古いピンを引きずらないよう表示を初期化する
+        lastGeocodedQuery = ""; // 次の来場者が同じ地名を入力しても再検索されるようにする
         lastErrors = null;
         btnTimer = window.setTimeout(() => {
           submitState = "idle";
@@ -347,6 +354,39 @@ export function initContributionPost(): void {
     const el = byId<HTMLInputElement>("cb-origin-coord");
     if (el) el.value = coordOrigin;
   }, () => lang);
+
+  /* cmd_754【4】(殿ご下命 2026-09-02 23:38・訂正 23:39): 文字欄(#cb-origin)に
+     入力確定された地名を、対応表(resolveOriginCoords、日本の47都道府県中心
+     ゆえ撤回済み)ではなく世界を覆う実ジオコーディング(Nominatim)で解決し
+     地図をflyTo+ピン表示する。新しいUI要素は足さない——既存の文字欄が
+     そのまま検索窓として働く(地図タップと同じ役割分担: 地名は文字欄に
+     残る・座標だけが#cb-origin-coordへ入る)。
+     発火は入力確定時(blur後のchange、またはEnter)のみ——一文字ごとに
+     問い合わせない(Nominatim利用規約の1req/秒制限にも寄与)。
+     ★後勝ち: タップ後に文字欄を編集して確定すればジオコーディング結果が
+     上書きする。逆にジオコーディング後に地図を直接タップし直せばタップが
+     勝つ——どちらも同じonPick経路(#cb-origin-coord)を後着順に更新するため、
+     特別な優先順位ロジックは不要(貴殿の判断: 2026-09-03)。
+     見つからない場合は静かに何もしない(既存座標を保持・エラー表示なし)。 */
+  const originInput = byId<HTMLInputElement>("cb-origin");
+  if (originInput) {
+    const triggerGeocode = (): void => {
+      const query = originInput.value.trim();
+      if (!query || query === lastGeocodedQuery) return;
+      lastGeocodedQuery = query;
+      geocodePlace(query).then((hit) => {
+        if (!hit) return; // 見つからない・失敗 — 捏造せず静かに何もしない
+        originPicker.flyToAndPin(hit.lat, hit.lng);
+      });
+    };
+    originInput.addEventListener("change", triggerGeocode);
+    originInput.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        triggerGeocode();
+      }
+    });
+  }
 
   const langBtn = byId<HTMLButtonElement>("cb-lang-toggle");
   langBtn?.addEventListener("click", () => {

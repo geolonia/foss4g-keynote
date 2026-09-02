@@ -67,6 +67,9 @@
     /* 文字入力の出身地欄は「地図が使えない方向けの控え」に格下げしたため、
        視覚的にも一段小さく・目立たなくする(フォームの主役は地図)。 */
     .cb-field--fallback .fb-field__label { font-size: 11px; opacity: .72; }
+    /* cmd_754【4】: Nominatim利用規約が求める出典表記。控えめに小さく表示する。 */
+    .cb-geocode-attrib { font-size: 10px; opacity: .6; margin: 4px 0 0; }
+    .cb-geocode-attrib a { color: inherit; }
   </style>
 </head>
 <body class="post-page" data-bg="dark">
@@ -99,6 +102,12 @@
         <span class="fb-field__label" data-en="Place name (optional if you tapped the map)" data-ja="地名(地図で選んだ場合は任意)">Place name (optional if you tapped the map)</span>
         <input id="cb-origin" class="cb-text cb-input" type="text" list="cb-origin-list" placeholder="e.g. Kagawa, Japan / France / Taiwan" data-placeholder-en="e.g. Kagawa, Japan / France / Taiwan" data-placeholder-ja="例: 香川県 / フランス / 台湾" maxlength="100" required />
         <span id="cb-err-origin" class="cb-err" role="alert"></span>
+        <!-- cmd_754【4】: 確定入力(blur/Enter)で世界規模ジオコーディングを行い
+             地図をその地点へ飛ばす(Nominatim・OpenStreetMap)。利用規約に
+             従い出典表記を必須で表示する。data-en/data-jaはtextContentを
+             丸ごと差し替えるためリンクを内包できず、この要素には付けない
+             (出典名は各国語共通で"© OpenStreetMap contributors"のまま表示)。 -->
+        <p class="cb-geocode-attrib">Place search: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></p>
       </label>
       <label class="fb-field">
         <span class="fb-field__label" data-en="(Optional) A hidden local spot" data-ja="(任意) 地元の隠れ名所">(Optional) A hidden local spot</span>

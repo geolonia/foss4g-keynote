@@ -13,7 +13,6 @@ import { createContributionClient } from "../lib/client";
 import { byId, escapeHtml, whenIdle } from "../lib/dom";
 import { resolveOriginCoords } from "../lib/originGeo";
 import { randomJitterMs } from "../lib/jitter";
-import { connectWithRetry } from "../lib/connectRetry";
 
 /** cmd_751 のデータ契約（ashigaru4 subtask_751b 確定版・叩き台段階では暫定）。 */
 export const CONTRIBUTION_TYPE = "Contribution";
@@ -22,11 +21,6 @@ export const CONTRIBUTION_TYPE = "Contribution";
 const VENUE_CENTER: [number, number] = [132.4596, 34.3963];
 const INITIAL_ZOOM = 4.2;
 const MAP_CONNECT_JITTER_MAX_MS = 5000;
-/* ★対症療法であり根治ではない(将軍裁定 2026-09-01・PUBLIC_RATE_LIMIT.auth対応)。
-   429で「Loading…」に永久固定される5件目の沈黙no-opを潰すための安全網:
-   一定時間内に読み込みが解決しなければ明示的なエラー文言へ落とす。
-   根治(認証往復自体を減らす設計)は別途進行中。 */
-const MAP_LOADING_WATCHDOG_MS = 12000;
 
 export interface ContributionFeatureProps {
   id: string;
@@ -348,24 +342,9 @@ export function initContributionMap(getLang: () => MapLang = () => "ja"): { refr
     });
     db!.on("subscribed", () => fetchHistory());
     db!.subscribe({ entityTypes: [CONTRIBUTION_TYPE] });
-
-    // 一定時間内にloaded/fetchFailedへ遷移しなければ「Loading…」に固定させず
-    // 明示的なエラー文言へ落とす(将軍裁定②・沈黙no-op対策の安全網)。
-    window.setTimeout(() => {
-      if (statusState.kind === "loading") {
-        statusState = { kind: "fetchFailed" };
-        setStatus(MAP_STR[getLang()].fetchFailed);
-      }
-    }, MAP_LOADING_WATCHDOG_MS);
-
-    // db.connect()はSDKの既知の挙動として、429等の認証失敗時にPromiseを
-    // rejectせず'error'を emitするだけで終わる(connectRetry.ts参照)。ゆえに
-    // .catch()ではなく'error'イベント駆動の指数バックオフでリトライする。
-    connectWithRetry(db!, {
-      onGiveUp: () => {
-        console.warn("[contributionMap] connect retries exhausted");
-        fetchHistory(); // WS不通でも初期表示だけは試みる(画面が空白のまま止まらぬよう)
-      },
+    db!.connect().catch((err: unknown) => {
+      console.warn("[contributionMap] ws", err);
+      fetchHistory(); // WS不通でも初期表示だけは試みる(画面が空白のまま止まらぬよう)
     });
   }
 

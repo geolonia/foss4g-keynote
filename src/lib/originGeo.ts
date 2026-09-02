@@ -169,30 +169,6 @@ for (const p of PREFECTURE_NAMES) {
   PREFECTURE_ROMAJI_TO_CODE[p.romaji] = p.code;
 }
 
-const GEO_PREFIX = "geo:";
-
-/**
- * 地図タップで直接得た座標を origin 文字列へエンコードする(cmd_754 全面刷新・
- * 地図クリック投稿UI)。ジオコーディング/対応表を経由せず、タップした座標を
- * そのまま器(origin文字列 → resolveOriginCoords の出力)へ流し込む。
- * 小数4桁(約11m精度)で十分——番地レベルの精度は不要。
- */
-export function formatCoordOrigin(lat: number, lng: number): string {
-  return `${GEO_PREFIX}${lat.toFixed(4)},${lng.toFixed(4)}`;
-}
-
-/** formatCoordOrigin() の逆変換。既存の都道府県/国名対応表とは表記が重ならない
- *  専用プレフィックス("geo:")を前置するため、既存の解決ロジックと衝突しない。 */
-function parseCoordOrigin(raw: string): LngLat | null {
-  if (!raw.startsWith(GEO_PREFIX)) return null;
-  const m = /^(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)$/.exec(raw.slice(GEO_PREFIX.length));
-  if (!m) return null;
-  const lat = Number(m[1]);
-  const lng = Number(m[2]);
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-  return [lng, lat];
-}
-
 /** 単一トークン（都道府県コード/和名/romaji/国名のいずれか一つ）を座標へ解決する。 */
 function resolveToken(raw: string): LngLat | null {
   if (/^\d{1,2}$/.test(raw)) {
@@ -219,9 +195,6 @@ export function resolveOriginCoords(origin: string): LngLat | null {
   if (typeof origin !== "string") return null;
   const raw = origin.trim();
   if (!raw) return null;
-
-  const pinned = parseCoordOrigin(raw);
-  if (pinned) return pinned;
 
   const direct = resolveToken(raw);
   if (direct) return direct;

@@ -21,7 +21,6 @@ import {
 } from "./contributionValidation";
 import { buildContributionEntity, CONTRIBUTION_MODEL } from "./contributionEntity";
 import { initContributionMap } from "./contributionMap";
-import { initOriginMapPicker } from "./originMapPicker";
 import { randomJitterMs } from "../lib/jitter";
 import { connectWithRetry } from "../lib/connectRetry";
 import { createContributionEntityRawFetch } from "../lib/rawFetchCreateEntity";
@@ -95,17 +94,9 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-/** #cb-origin(地名・文字入力)を最優先で使う。空なら地図タップの座標
- *  (#cb-origin-coord)へフォールバックする——将軍指摘(PR#14是正): 地図タップが
- *  地名を上書きしてはならない(講演の山場「広島・宮城・ブルターニュから牡蠣」の
- *  ためには地名がそのまま残る必要がある)。地図だけ・文字だけどちらでも
- *  送れるようにするための役割分担(originGeo.tsのformatCoordOrigin/
- *  resolveOriginCoordsが引き続き"geo:"接頭辞を解釈する)。 */
 function readInput(): ContributionInput {
-  const originText = byId<HTMLInputElement>("cb-origin")?.value ?? "";
-  const originCoord = byId<HTMLInputElement>("cb-origin-coord")?.value ?? "";
   return {
-    origin: originText.trim() ? originText : originCoord,
+    origin: byId<HTMLInputElement>("cb-origin")?.value ?? "",
     specialty: byId<HTMLInputElement>("cb-specialty")?.value ?? "",
     hiddenSpot: byId<HTMLInputElement>("cb-hiddenSpot")?.value ?? "",
   };
@@ -313,13 +304,6 @@ export function initContributionPost(): void {
         btn?.classList.add("is-ok");
         renderSubmitLabel();
         form.reset();
-        // ★input[type=hidden]はvalue IDL属性がcontent属性へ直接reflectするため、
-        // JSでel.value=...した時点でform.reset()の「初期値」自体がそこへ書き
-        // 変わってしまい、reset()では戻らない(text入力とは異なる仕様・実測で
-        // 判明)。座標欄は明示的にクリアする。
-        const originCoordEl = byId<HTMLInputElement>("cb-origin-coord");
-        if (originCoordEl) originCoordEl.value = "";
-        originPicker.clearPin(); // 次の投稿が古いピンを引きずらないよう表示を初期化する
         lastErrors = null;
         btnTimer = window.setTimeout(() => {
           submitState = "idle";
@@ -340,13 +324,6 @@ export function initContributionPost(): void {
 
   initMapToggle(() => lang);
   const mapApi = initContributionMap(() => lang);
-  // cmd_754 全面刷新(殿ご下命 2026-09-02・将軍是正 2026-09-02 19:01): 地図タップは
-  // 座標専用の隠し欄(#cb-origin-coord)へ入れる。地名(#cb-origin)は上書きしない
-  // ——地図が座標を、文字が地名を担う役割分担(readInput()がフォールバックを解決する)。
-  const originPicker = initOriginMapPicker((coordOrigin) => {
-    const el = byId<HTMLInputElement>("cb-origin-coord");
-    if (el) el.value = coordOrigin;
-  }, () => lang);
 
   const langBtn = byId<HTMLButtonElement>("cb-lang-toggle");
   langBtn?.addEventListener("click", () => {
@@ -367,7 +344,6 @@ export function initContributionPost(): void {
       renderErrors(lang, raw, errors);
     }
     mapApi.refreshLang();
-    originPicker.refreshLang();
   });
 }
 

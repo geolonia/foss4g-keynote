@@ -16,7 +16,6 @@ interface ImportMeta {
 interface GeoloniaNamespace {
   Map: new (options: Record<string, unknown>) => any;
   Popup: new (options?: Record<string, unknown>) => any;
-  Marker: new (options?: Record<string, unknown>) => any;
   LngLatBounds: new () => any;
   GeolocateControl: new (options?: Record<string, unknown>) => any;
 }

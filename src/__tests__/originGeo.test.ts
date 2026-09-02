@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCoordOrigin, resolveOriginCoords } from "../lib/originGeo";
+import { resolveOriginCoords } from "../lib/originGeo";
 
 describe("resolveOriginCoords", () => {
   it("resolves a JIS 2-digit prefecture code", () => {
@@ -57,32 +57,6 @@ describe("resolveOriginCoords", () => {
 
     it("still returns null when neither part of a comma-separated input resolves", () => {
       expect(resolveOriginCoords("Timbuktu, Mali")).toBeNull();
-    });
-  });
-
-  describe("地図タップで直接得た座標(cmd_754 全面刷新・formatCoordOrigin)", () => {
-    it("round-trips a map-tapped coordinate through the origin string", () => {
-      const encoded = formatCoordOrigin(34.3963, 132.4596);
-      expect(encoded).toBe("geo:34.3963,132.4596");
-      expect(resolveOriginCoords(encoded)).toEqual([132.4596, 34.3963]);
-    });
-
-    it("supports negative latitude/longitude (southern/western hemisphere)", () => {
-      const encoded = formatCoordOrigin(-33.8688, 151.2093); // Sydney
-      expect(resolveOriginCoords(encoded)).toEqual([151.2093, -33.8688]);
-    });
-
-    it("takes priority over the lookup table when both could theoretically apply", () => {
-      // "34" 単体は都道府県コード解決の対象だが、geo: プレフィックス付きは
-      // 座標エンコードとして優先的に解決される(表記が重ならないため実際には
-      // 衝突しないが、優先順位の意図を明示するテスト)。
-      expect(resolveOriginCoords("geo:1.0000,2.0000")).toEqual([2, 1]);
-    });
-
-    it("rejects out-of-range or malformed coordinate strings rather than guessing", () => {
-      expect(resolveOriginCoords("geo:999,999")).toBeNull();
-      expect(resolveOriginCoords("geo:abc,def")).toBeNull();
-      expect(resolveOriginCoords("geo:34.3963")).toBeNull();
     });
   });
 });

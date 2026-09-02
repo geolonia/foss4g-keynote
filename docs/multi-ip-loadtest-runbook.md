@@ -29,13 +29,26 @@
    git fetch origin main && git log -1 origin/main
    ```
 
-2. 発火時刻を「今から8分後」に指定してdispatch:
+2. 発火時刻を「今から8分後」に指定してdispatch。`gh run list -L1`は
+   dispatchとの対応を保証しない(他の実行と取り違える危険)ため、
+   `gh workflow run`が返すrun URLからRUN_IDを直接取得する
+   (CodeRabbit指摘・gh CLI 2.87.0以降で対応。古いCLIでURLが返らない
+   場合はevent/branch/actor/時刻で一意特定するフォールバックを使う):
    ```bash
    unset GH_TOKEN
    FIRE_AT=$(( $(date +%s%3N) + 480000 ))
-   gh workflow run multi-ip-loadtest.yml -R geolonia/foss4g-keynote --ref main \
-     -f n=200 -f fire_at_epoch_ms=$FIRE_AT
-   echo "FIRE_AT=$FIRE_AT ($(date -r $((FIRE_AT/1000)) 2>/dev/null || date -d @$((FIRE_AT/1000))))"
+   DISPATCH_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+   RUN_URL=$(gh workflow run multi-ip-loadtest.yml -R geolonia/foss4g-keynote --ref main \
+     -f n=200 -f fire_at_epoch_ms=$FIRE_AT)
+   if [ -n "$RUN_URL" ]; then
+     RUN_ID="${RUN_URL##*/}"
+   else
+     sleep 3
+     RUN_ID=$(gh run list -R geolonia/foss4g-keynote --workflow=multi-ip-loadtest.yml \
+       --json databaseId,event,headBranch,createdAt \
+       -q "[.[] | select(.event==\"workflow_dispatch\" and .headBranch==\"main\" and .createdAt>=\"$DISPATCH_AT\")] | sort_by(.createdAt) | .[0].databaseId")
+   fi
+   echo "FIRE_AT=$FIRE_AT ($(date -r $((FIRE_AT/1000)) 2>/dev/null || date -d @$((FIRE_AT/1000)))) RUN_ID=$RUN_ID"
    ```
    - `n`は既定200(1〜200の範囲でバリデーションされる)。
    - waveは60件単位(`WAVE_SIZE=60`)、wave間は90秒(`WAVE_GAP_MS`)ずつ
@@ -43,7 +56,6 @@
 
 3. 実行状況を監視:
    ```bash
-   RUN_ID=$(gh run list -R geolonia/foss4g-keynote --workflow=multi-ip-loadtest.yml -L1 --json databaseId -q '.[0].databaseId')
    gh run watch "$RUN_ID" -R geolonia/foss4g-keynote
    ```
 
@@ -51,8 +63,11 @@
    ```bash
    gh run view "$RUN_ID" -R geolonia/foss4g-keynote --log | grep -A5 "verify-ip-diversity"
    ```
+   `total_results`が指定した`n`と一致していること(RESULT出力前に落ちた
+   job=欠落がないこと)、`ok_true+ok_false`も`n`と一致していること、かつ
    `unique_source_ips`が`total_results`と一致していることを確認する
-   (一致しなければ試験前提が崩れている=結果を鵜呑みにしない)。
+   (workflow自体がこれらをexit 1で強制するが、ログでも目視確認する。
+   一致しなければ試験前提が崩れている=結果を鵜呑みにしない)。
 
 5. 各jobのRESULTログ(OK/NG・latency・wave・ip)を収集して成功率を集計:
    ```bash
@@ -66,8 +81,9 @@
 1. tenant_admin資格情報(Keychain: `geonicdb-foss4g2026-tenant-admin-email`
    / `-password`)でログインし、`urn:ngsi-ld:Contribution:loadtest-*`
    接頭辞のentityを全件削除する(公開デモ画面への汚染防止)。
-2. 削除後、`GET /ngsi-ld/v1/entities?type=Contribution&q=id~=loadtest`
-   で残0件を実測確認する。
+2. 削除後、`GET /ngsi-ld/v1/entities?type=Contribution&idPattern=^urn:ngsi-ld:Contribution:loadtest-multiip-`
+   で残0件を実測確認する(`q`は属性値検索用でありIDの正規表現検索には
+   使えない——CodeRabbit指摘。idPatternを使うこと)。
 3. 試験結果(成功率・latency分布・IP多様性)をqueue/reports/
    ashigaru1_report.yamlへ追記し家老へ報告する。
 

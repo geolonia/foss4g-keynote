@@ -131,11 +131,35 @@ jobs:
           path: results
           merge-multiple: true
       - name: aggregate
+        env:
+          # workflow_dispatch inputをそのままshellへ展開せずenv経由にする
+          # (PR#10既是正のtemplate injection対策と同じ作法)。
+          EXPECTED_N: ${{ inputs.n }}
         run: |
+          N="${EXPECTED_N:-200}"
           cat results/*.log > all-results.log 2>/dev/null || true
-          total=$(grep -c '^RESULT ' all-results.log || echo 0)
-          unique_ips=$(grep -oE 'ip=[0-9a-fA-F:.]+' all-results.log | sort -u | wc -l | tr -d ' ')
-          echo "total_results=$total unique_source_ips=$unique_ips"
+          total=$(grep -c '^RESULT ' all-results.log 2>/dev/null) || total=0
+          # RESULT行のみを対象に、行内で最初に現れるip=フィールド(送信元IP)
+          # だけを拾う(CodeRabbit指摘: message="...ip=..."のような失敗理由
+          # 文字列に別のIP文字列が紛れ込むと、grep -oEの単純抽出では
+          # 誤ってそれも1件のユニークIPとして数えてしまう)。
+          unique_ips=$(grep '^RESULT ' all-results.log | awk '{ for (i=1;i<=NF;i++) if ($i ~ /^ip=/) { print $i; break } }' | sort -u | wc -l | tr -d ' ')
+          ok_true=$(grep '^RESULT ' all-results.log | awk '{for(i=1;i<=NF;i++) if ($i=="ok=true") c++} END{print c+0}')
+          ok_false=$(grep '^RESULT ' all-results.log | awk '{for(i=1;i<=NF;i++) if ($i=="ok=false") c++} END{print c+0}')
+          echo "total_results=$total unique_source_ips=$unique_ips ok_true=$ok_true ok_false=$ok_false expected_n=$N"
+          # CodeRabbit指摘: unique_ips==totalの一致判定だけでは、RESULT出力前に
+          # job自体が落ちて欠落したケース(例: 10件がCONTRIBUTION_KEY未設定等で
+          # クラッシュし残り190件が異なるIPだった場合、190==190で素通りしてしまう)
+          # を見逃す。totalおよびok=true+ok=falseの合計を要求n件と厳密一致させ、
+          # 欠落を確実に検出する。
+          if [ "$total" -ne "$N" ]; then
+            echo "::error::total_results($total) != expected n($N). RESULT行を出す前にjobが落ちた欠落がある可能性が高く、試験結果は信用できない。"
+            exit 1
+          fi
+          if [ "$((ok_true + ok_false))" -ne "$N" ]; then
+            echo "::error::ok=true+ok=false ($((ok_true + ok_false))) != expected n($N)."
+            exit 1
+          fi
           # 「200名・200IP」の前提を検証する試験である以上、IPの重複は
           # 1件でも許容しない(CodeRabbit指摘: 半数閾値では例えば101件が
           # 同一IPに集中していても見逃す=PUBLIC_RATE_LIMIT.authのper-IP

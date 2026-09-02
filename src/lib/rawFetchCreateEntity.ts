@@ -47,9 +47,11 @@ export async function createContributionEntityRawFetch(
     clearTimeout(timer);
   }
   if (!res.ok) {
-    const body: { detail?: string; description?: string } = await res
-      .json()
-      .catch(() => ({}));
+    // CodeRabbit指摘(PR#11): Response.json()がnullを返す(または非object値)場合、
+    // body.detailの参照でTypeErrorになりうる。nullや非objectは{}へ正規化する。
+    const parsed: unknown = await res.json().catch(() => null);
+    const body: { detail?: string; description?: string } =
+      parsed && typeof parsed === "object" ? parsed : {};
     throw new Error(
       `Create failed (${res.status}): ${body.detail ?? body.description ?? res.statusText}`,
     );

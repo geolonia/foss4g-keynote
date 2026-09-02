@@ -129,6 +129,31 @@ describe("connectWithRetry", () => {
     expect(db.connect).toHaveBeenCalledTimes(3);
   });
 
+  it("onGiveUpを渡さない複数呼び出し元がいる場合、片方のcleanup()だけではループを止めない(CodeRabbit指摘・PR#11: giveUpCallbacks.sizeでなくrefCountで所有者を数える)", async () => {
+    const db = fakeDb();
+    const cleanupA = connectWithRetry(db as never, { maxAttempts: 5, baseDelayMs: 1000 }); // onGiveUpなし
+    const cleanupB = connectWithRetry(db as never, { maxAttempts: 5, baseDelayMs: 1000 }); // onGiveUpなし
+    expect(db.connect).toHaveBeenCalledTimes(1);
+
+    // Aだけがcleanupしても、Bがまだ相乗り中ゆえループは止まってはならない。
+    cleanupA();
+    db.emit("error");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(db.connect).toHaveBeenCalledTimes(2); // Bのために引き続きリトライされる
+
+    // 最後の所有者Bがcleanupすれば、以後は本当に止まる。
+    cleanupB();
+    db.emit("error");
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(db.connect).toHaveBeenCalledTimes(2); // 増えない
+
+    // 二重cleanup()呼び出しでも安全(released guard)。
+    expect(() => {
+      cleanupA();
+      cleanupB();
+    }).not.toThrow();
+  });
+
   it("cleanup() unsubscribes so no further retries fire (コンポーネント破棄時の安全性)", async () => {
     const db = fakeDb();
     const onGiveUp = vi.fn();

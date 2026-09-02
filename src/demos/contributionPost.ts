@@ -243,6 +243,12 @@ export function initContributionPost(): void {
   // 状態を明示的に保持する。言語トグル時にどの文言(idle/sending/ok/err)を
   // 描画すべきかを、途中の状態(送信中・成功・失敗)を問わず正しく判定するため。
   let submitState: "idle" | "sending" | "ok" | "err" = "idle";
+  // CodeRabbit指摘(PR#11): タイムアウト後にユーザーが再送(同じフォームで再送信)した際、
+  // buildContributionEntity()が毎回新しいidを生成すると、サーバがタイムアウト前に
+  // POSTを処理済み(応答だけが失われた)場合に別idのContributionとして重複登録される。
+  // 直前の送信が成功していない間は同じidを使い回し、成功したら次の新規投稿のために
+  // クリアする(idempotency key相当)。
+  let pendingEntityId: string | null = null;
   function renderSubmitLabel(): void {
     if (!btn) return;
     btn.textContent =
@@ -274,7 +280,12 @@ export function initContributionPost(): void {
       }
       return;
     }
-    const entity = buildContributionEntity(raw, { seeded: false, submittedAt: nowIso() });
+    const entity = buildContributionEntity(raw, {
+      seeded: false,
+      submittedAt: nowIso(),
+      id: pendingEntityId ?? undefined,
+    });
+    pendingEntityId = entity.id as string;
     if (btnTimer) window.clearTimeout(btnTimer);
     submitState = "sending";
     if (btn) {
@@ -289,6 +300,7 @@ export function initContributionPost(): void {
     createContributionEntityRawFetch(entity)
       .then(() => {
         submitState = "ok";
+        pendingEntityId = null;
         btn?.classList.add("is-ok");
         renderSubmitLabel();
         form.reset();

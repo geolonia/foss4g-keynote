@@ -30,6 +30,14 @@ interface RetryState {
   settled: boolean;
   timer: number;
   giveUpCallbacks: Set<() => void>;
+  /** 進行中のこのリトライループへ相乗りしている呼び出し元の数。
+      onGiveUpの有無に関わらず全呼び出し元を数える(CodeRabbit指摘・PR#11:
+      giveUpCallbacks.setはonGiveUpを渡さない呼び出し元を保持しないため、
+      それをオーナー数の代わりに使うと早期teardownが起きる)。 */
+  refCount: number;
+  /** 生成元(最初の呼び出し)のみが持つteardown本体。相乗り側からの
+      最終cleanupでも同じteardownを呼べるよう、状態に持たせておく。 */
+  teardown: () => void;
 }
 
 /* client.tsのシングルトン化により、contributionPost.tsとcontributionMap.ts
@@ -52,9 +60,16 @@ export function connectWithRetry(db: GeonicDB, opts: ConnectRetryOptions = {}): 
   if (existing) {
     // 既に進行中のリトライループがある(同一dbへの2件目以降の呼び出し)。
     // 新規のconnect()/リスナーを増やさず、give-up通知だけを相乗りさせる。
+    existing.refCount++;
     if (opts.onGiveUp) existing.giveUpCallbacks.add(opts.onGiveUp);
+    let released = false;
     return () => {
+      if (released) return;
+      released = true;
       if (opts.onGiveUp) existing.giveUpCallbacks.delete(opts.onGiveUp);
+      existing.refCount--;
+      // 最後の所有者がcleanupした場合のみループ自体を止める(CodeRabbit指摘・PR#11)。
+      if (existing.refCount === 0 && !existing.settled) existing.teardown();
     };
   }
 
@@ -65,6 +80,8 @@ export function connectWithRetry(db: GeonicDB, opts: ConnectRetryOptions = {}): 
     settled: false,
     timer: 0,
     giveUpCallbacks: new Set(opts.onGiveUp ? [opts.onGiveUp] : []),
+    refCount: 1,
+    teardown: () => {},
   };
   inFlight.set(db, state);
 
@@ -75,6 +92,7 @@ export function connectWithRetry(db: GeonicDB, opts: ConnectRetryOptions = {}): 
     if (state.timer) clearTimeout(state.timer);
     if (inFlight.get(db) === state) inFlight.delete(db);
   }
+  state.teardown = teardown;
 
   function onConnected(): void {
     teardown();
@@ -109,9 +127,14 @@ export function connectWithRetry(db: GeonicDB, opts: ConnectRetryOptions = {}): 
   db.on("error", onError);
   db.connect().catch(() => {});
 
+  let released = false;
   return () => {
+    if (released) return;
+    released = true;
     if (opts.onGiveUp) state.giveUpCallbacks.delete(opts.onGiveUp);
-    // 呼び出し元が単独オーナーの場合のみ、明示cleanup()でループ自体も止める。
-    if (state.giveUpCallbacks.size === 0) teardown();
+    state.refCount--;
+    // 最後の所有者がcleanupした場合のみループ自体を止める(CodeRabbit指摘・PR#11:
+    // onGiveUpを渡さない呼び出し元もrefCountで正しく数える)。
+    if (state.refCount === 0 && !state.settled) teardown();
   };
 }

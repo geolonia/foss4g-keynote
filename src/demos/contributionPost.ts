@@ -22,6 +22,8 @@ import {
 import { buildContributionEntity, CONTRIBUTION_MODEL } from "./contributionEntity";
 import { initContributionMap } from "./contributionMap";
 import { randomJitterMs } from "../lib/jitter";
+import { connectWithRetry } from "../lib/connectRetry";
+import { createContributionEntityRawFetch } from "../lib/rawFetchCreateEntity";
 
 /* ControlPlane障害の根治(将軍裁定 2026-09-01): 200名が一斉に/post/を開くと、
    カウンタ/WS購読のための初回トークン引き換えがControlPlaneHandlerへ一斉
@@ -29,6 +31,11 @@ import { randomJitterMs } from "../lib/jitter";
    (投稿送信時のトークン取得はcreateEntity()が必要な時にensureToken()で
    自前取得するため、このjitterの影響を受けず即座に行われる)。 */
 const CONNECT_JITTER_MAX_MS = 5000;
+/* ★対症療法であり根治ではない(将軍裁定 2026-09-01・PUBLIC_RATE_LIMIT.auth対応)。
+   429でカウンタが永久に初期値のまま固まる沈黙no-opを潰すための安全網:
+   一定時間内に一度も件数取得できなければ明示的な取得失敗文言へ落とす。
+   根治(認証往復自体を減らす設計)は別途進行中。 */
+const COUNT_WATCHDOG_MS = 12000;
 
 /* ---- 言語切替(既定=英語・FOSS4G Globalは英語講演のため) ----
    contributionValidation.ts はデッキ側(contribution.ts)とも共有する
@@ -46,6 +53,7 @@ const STR = {
     mapOpen: "🗺️ Open the live map",
     mapClose: "🗺️ Close the live map",
     count: (n: number) => `${n} submissions so far`,
+    countUnavailable: "Live count unavailable",
     err: {
       originRequired: "Please enter where you're from",
       originMax: `Please keep it within ${ORIGIN_MAX} characters`,
@@ -62,6 +70,7 @@ const STR = {
     mapOpen: "🗺️ 会場の地図を開く",
     mapClose: "🗺️ 地図を閉じる",
     count: (n: number) => `これまでの投稿 ${n} 件`,
+    countUnavailable: "件数を取得できませんでした",
     err: {
       originRequired: "出身地を入力してください",
       originMax: `出身地は${ORIGIN_MAX}文字以内で入力してください`,
@@ -141,6 +150,11 @@ function setCount(lang: Lang, n: number): void {
   if (el) el.textContent = STR[lang].count(n);
 }
 
+function setCountUnavailable(lang: Lang): void {
+  const el = byId("cb-count");
+  if (el) el.textContent = STR[lang].countUnavailable;
+}
+
 /** 地図トグルボタンの結線。クリックで #cb-map の hidden を外すだけ —
  *  描画自体は initContributionMap() 側の MutationObserver が担当する。 */
 function initMapToggle(getLang: () => Lang): void {
@@ -165,15 +179,21 @@ export function initContributionPost(): void {
   let lastErrors: Partial<Record<ContributionField, string>> | null = null;
 
   let lastCount = 0;
+  let countResolved = false; // db.count()が一度でも成功したか(watchdogの判定に使う)
+  let countUnavailable = false; // watchdog発火後、以降resolveすれば自動的に復帰する
+  function renderCount(): void {
+    if (countUnavailable && !countResolved) setCountUnavailable(lang);
+    else setCount(lang, lastCount);
+  }
   function refreshCount(): void {
     db.count({ type: CONTRIBUTION_MODEL.type })
       .then((n) => {
+        countResolved = true;
+        countUnavailable = false;
         // 複数のcount()呼び出しが競合し応答が逆順で届いても、投影画面の
         // カウンタが一瞬減って見えないようにする(単調増加を保証)。
-        if (n > lastCount) {
-          lastCount = n;
-          setCount(lang, n);
-        }
+        if (n > lastCount) lastCount = n;
+        renderCount();
       })
       .catch((err: unknown) => console.warn("[contributionPost] count fetch failed", err));
   }
@@ -195,9 +215,24 @@ export function initContributionPost(): void {
     db.on("subscribed", () => fetchInitialCount());
     db.on("error", (err) => console.warn("[contributionPost] ws", err));
     db.subscribe({ entityTypes: [CONTRIBUTION_MODEL.type] });
-    db.connect().catch((err: unknown) => {
-      console.warn("[contributionPost] connect failed", err);
-      fetchInitialCount(); // WS不通でも初期表示だけは試みる(画面が空白のまま止まらぬよう)
+
+    // 一定時間内に一度もdb.count()が解決しなければ、初期値のまま固まらせず
+    // 明示的な取得失敗文言へ落とす(将軍裁定②・沈黙no-op対策の安全網)。
+    window.setTimeout(() => {
+      if (!countResolved) {
+        countUnavailable = true;
+        renderCount();
+      }
+    }, COUNT_WATCHDOG_MS);
+
+    // db.connect()はSDKの既知の挙動として、429等の認証失敗時にPromiseを
+    // rejectせず'error'を emitするだけで終わる(connectRetry.ts参照)。ゆえに
+    // .catch()ではなく'error'イベント駆動の指数バックオフでリトライする。
+    connectWithRetry(db, {
+      onGiveUp: () => {
+        console.warn("[contributionPost] connect retries exhausted");
+        fetchInitialCount(); // WS不通でも初期表示だけは試みる(画面が空白のまま止まらぬよう)
+      },
     });
   }, randomJitterMs(CONNECT_JITTER_MAX_MS));
 
@@ -208,6 +243,12 @@ export function initContributionPost(): void {
   // 状態を明示的に保持する。言語トグル時にどの文言(idle/sending/ok/err)を
   // 描画すべきかを、途中の状態(送信中・成功・失敗)を問わず正しく判定するため。
   let submitState: "idle" | "sending" | "ok" | "err" = "idle";
+  // CodeRabbit指摘(PR#11): タイムアウト後にユーザーが再送(同じフォームで再送信)した際、
+  // buildContributionEntity()が毎回新しいidを生成すると、サーバがタイムアウト前に
+  // POSTを処理済み(応答だけが失われた)場合に別idのContributionとして重複登録される。
+  // 直前の送信が成功していない間は同じidを使い回し、成功したら次の新規投稿のために
+  // クリアする(idempotency key相当)。
+  let pendingEntityId: string | null = null;
   function renderSubmitLabel(): void {
     if (!btn) return;
     btn.textContent =
@@ -239,7 +280,12 @@ export function initContributionPost(): void {
       }
       return;
     }
-    const entity = buildContributionEntity(raw, { seeded: false, submittedAt: nowIso() });
+    const entity = buildContributionEntity(raw, {
+      seeded: false,
+      submittedAt: nowIso(),
+      id: pendingEntityId ?? undefined,
+    });
+    pendingEntityId = entity.id as string;
     if (btnTimer) window.clearTimeout(btnTimer);
     submitState = "sending";
     if (btn) {
@@ -247,9 +293,14 @@ export function initContributionPost(): void {
       btn.classList.remove("is-ok", "is-err");
     }
     renderSubmitLabel();
-    db.createEntity(entity)
+    // ★SDKバイパス(将軍裁定 2026-09-01): db.createEntity()経由だとensureToken()が
+    // dpopRequiredの緩和を無視し無条件で/auth/nonce往復を強制するため、投稿の
+    // 送信だけはrawFetchCreateEntity.tsのX-Api-Key直付けfetchで行う(WS購読/
+    // カウンタ取得は読み取り系ゆえ従来通りSDK経由のまま)。
+    createContributionEntityRawFetch(entity)
       .then(() => {
         submitState = "ok";
+        pendingEntityId = null;
         btn?.classList.add("is-ok");
         renderSubmitLabel();
         form.reset();
@@ -279,7 +330,7 @@ export function initContributionPost(): void {
     lang = lang === "en" ? "ja" : "en";
     langBtn.setAttribute("aria-pressed", String(lang === "ja"));
     applyStaticText(lang);
-    setCount(lang, lastCount);
+    renderCount();
     renderSubmitLabel();
     const map = byId("cb-map");
     const mapToggleBtn = byId<HTMLButtonElement>("cb-map-toggle");

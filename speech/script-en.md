@@ -24,7 +24,7 @@
 |---|---------|------:|----------------:|-------------:|------:|--------:|
 | I | Seed — the room starts posting | 168 | 92 s | 15 s | 107 s | 1:47 |
 | II | The open data decade (minimized) | 133 | 73 s | — | 73 s | 3:00 |
-| III | The meaning gap | 285 | 155 s | 10 s | 165 s | 5:45 |
+| III | The meaning gap | 284 | 155 s | 10 s | 165 s | 5:45 |
 | IV | The objection — two answers (incl. 🎙️ 60 s) | 207 | 113 s | 75 s | 188 s | 8:53 |
 | V | The build story + ETSI conformance | 466 | 254 s | 10 s | 264 s | 13:17 |
 | VI | The payoff | 100 | 55 s | — | 55 s | 14:12 |
@@ -87,7 +87,9 @@ Now the new part. AI agents are becoming the main users of this data. Each new A
 
 **[SLIDE 4 — "The four ambiguities." Four quadrants: Identity / Semantics / Units & conventions / Time.]**
 
-Machine-readable does not mean machine-understood. Every dataset I have worked with has the same four problems.
+**[slow down — say it deliberately]**
+
+Machine-readable is not machine-interpretable. Every dataset I have worked with has the same four problems.
 
 Identity. Is "Chuo Community Center" in this file the same building as "Chūō Kōminkan" in that one?
 

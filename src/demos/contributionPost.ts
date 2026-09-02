@@ -21,6 +21,7 @@ import {
 } from "./contributionValidation";
 import { buildContributionEntity, CONTRIBUTION_MODEL } from "./contributionEntity";
 import { initContributionMap } from "./contributionMap";
+import { initOriginMapPicker } from "./originMapPicker";
 import { randomJitterMs } from "../lib/jitter";
 import { connectWithRetry } from "../lib/connectRetry";
 import { createContributionEntityRawFetch } from "../lib/rawFetchCreateEntity";
@@ -304,6 +305,7 @@ export function initContributionPost(): void {
         btn?.classList.add("is-ok");
         renderSubmitLabel();
         form.reset();
+        originPicker.clearPin(); // 次の投稿が古いピンを引きずらないよう表示を初期化する
         lastErrors = null;
         btnTimer = window.setTimeout(() => {
           submitState = "idle";
@@ -324,6 +326,12 @@ export function initContributionPost(): void {
 
   initMapToggle(() => lang);
   const mapApi = initContributionMap(() => lang);
+  // cmd_754 全面刷新(殿ご下命 2026-09-02): 地図タップで origin を直接埋める。
+  // 文字入力(#cb-origin)は「地図が使えない方向けの控え」として残す(additive)。
+  const originPicker = initOriginMapPicker((coordOrigin) => {
+    const el = byId<HTMLInputElement>("cb-origin");
+    if (el) el.value = coordOrigin;
+  }, () => lang);
 
   const langBtn = byId<HTMLButtonElement>("cb-lang-toggle");
   langBtn?.addEventListener("click", () => {
@@ -344,6 +352,7 @@ export function initContributionPost(): void {
       renderErrors(lang, raw, errors);
     }
     mapApi.refreshLang();
+    originPicker.refreshLang();
   });
 }
 

@@ -249,6 +249,122 @@ test.describe("独立投稿ページ /post/", () => {
     expect(box?.height ?? 0).toBeGreaterThan(0);
   });
 
+  test.describe("地図から選ぶ投稿UI(cmd_754 全面刷新・殿ご下命 2026-09-02)", () => {
+    test("地図(#cb-origin-map)はページ読込直後から表示され、タップすると#cb-originにgeo:座標が自動入力される", async ({
+      page,
+    }) => {
+      await page.goto("./post/");
+      const pickerMap = page.locator("#cb-origin-map");
+      await expect(pickerMap).toBeVisible();
+
+      // 器だけでなく実際に地図(canvas)が描画されていること(沈黙no-op再発防止・
+      // #cb-mapの教訓をこの新しい地図にも適用する)。
+      const canvas = pickerMap.locator("canvas.maplibregl-canvas");
+      await expect(canvas).toBeVisible({ timeout: 15_000 });
+      // ★canvasの描画とクリックハンドラの実際の反応可能化には僅かなずれがある
+      // (maplibre-glの初期化過程・実測)。「タップしてください」の文言が
+      // 出るまではタップしても無反応(沈黙no-op)になりうるため、本番同様に
+      // 状態文言がready(タップ案内)へ変わってからタップする。
+      await expect(pickerMap.locator(".fb-chart__title")).toHaveText(
+        "Tap the map to select where you're from",
+        { timeout: 15_000 },
+      );
+
+      const box = await canvas.boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThan(0);
+      await page.mouse.click((box!.x + box!.width / 2), (box!.y + box!.height / 2));
+
+      // ジオコーディング・外部APIを一切経由せず、タップ座標がそのまま
+      // origin文字列(geo:<lat>,<lng>)へ流し込まれる(originGeo.ts参照)。
+      await expect(page.locator("#cb-origin")).toHaveValue(/^geo:-?\d+\.\d{4},-?\d+\.\d{4}$/);
+    });
+
+    test("地図タップ後もそのまま送信フローに乗る(送信失敗表示への遷移は従来通り)", async ({ page }) => {
+      await page.route("**/ngsi-ld/v1/entities", (route) =>
+        route.request().method() === "POST" ? route.abort() : route.continue(),
+      );
+      await page.goto("./post/");
+      const canvas = page.locator("#cb-origin-map canvas.maplibregl-canvas");
+      await expect(canvas).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator("#cb-origin-map .fb-chart__title")).toHaveText(
+        "Tap the map to select where you're from",
+        { timeout: 15_000 },
+      );
+      const box = await canvas.boundingBox();
+      await page.mouse.click((box!.x + box!.width / 2), (box!.y + box!.height / 2));
+      await expect(page.locator("#cb-origin")).toHaveValue(/^geo:/);
+
+      await page.fill("#cb-specialty", "Sanuki udon");
+      await page.click("#cb-submit");
+      await expect(page.locator("#cb-submit")).toHaveText(/Failed — please retry/, { timeout: 15_000 });
+      // 地図タップで埋めたoriginの値は失敗後も保持される(タップし直さず再送信できる)。
+      await expect(page.locator("#cb-origin")).toHaveValue(/^geo:/);
+    });
+
+    test("送信成功後は地図ピッカーの表示・#cb-originとも初期状態へ戻る(古いピンを引きずらない)", async ({
+      page,
+    }) => {
+      await page.route("**/ngsi-ld/v1/entities", (route) =>
+        route.request().method() === "POST"
+          ? route.fulfill({ status: 201, contentType: "application/ld+json", body: "{}" })
+          : route.continue(),
+      );
+      await page.goto("./post/");
+      const canvas = page.locator("#cb-origin-map canvas.maplibregl-canvas");
+      await expect(canvas).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator("#cb-origin-map .fb-chart__title")).toHaveText(
+        "Tap the map to select where you're from",
+        { timeout: 15_000 },
+      );
+      const box = await canvas.boundingBox();
+      await page.mouse.click((box!.x + box!.width / 2), (box!.y + box!.height / 2));
+      await expect(page.locator("#cb-origin")).toHaveValue(/^geo:/);
+
+      await page.fill("#cb-specialty", "Sanuki udon");
+      await page.click("#cb-submit");
+      await expect(page.locator("#cb-submit")).toHaveText(/Submitted! Thank you/, { timeout: 15_000 });
+
+      // form.reset()でorigin欄の値自体は空になる。加えて地図ピッカー側の状態文言も
+      // 「選択済み」から初期のヒント文言へ戻ること(originPicker.clearPin())を確認する。
+      await expect(page.locator("#cb-origin")).toHaveValue("");
+      await expect(page.locator("#cb-origin-map .fb-chart__title")).toHaveText(
+        "Tap the map to select where you're from",
+      );
+    });
+
+    test("地図ピッカー: 準備が一定時間内に終わらなければLoading…に永久固定されず文字入力欄への誘導文言へ切り替わる(沈黙no-op対策)", async ({
+      page,
+    }) => {
+      // スタイル読込を恒久ハングさせ、"idle"イベントが一度も発火しない状況を再現する。
+      await page.route("**/assets/map-style.json", () => new Promise(() => {}));
+      await page.goto("./post/");
+      const status = page.locator("#cb-origin-map .fb-chart__title");
+      await expect(status).toHaveText("Loading map…");
+      // MAP_READY_WATCHDOG_MS(8s)を超えて待ち、Loading…に固定されないことを実証する。
+      await expect(status).toHaveText("Map is taking a while — please use the text field below", {
+        timeout: 15_000,
+      });
+      // watchdog発火中も文字入力欄は機能し続ける(additive・地図はあくまでオプション)。
+      await page.fill("#cb-origin", "Taiwan");
+      await page.fill("#cb-specialty", "Bubble tea");
+      await page.click("#cb-submit");
+      await expect(page.locator("#cb-err-origin")).toHaveText("");
+      await expect(page.locator("#cb-err-specialty")).toHaveText("");
+    });
+
+    test("地図が使えなくても文字入力欄だけで従来どおり投稿できる(additive・地図はオプション)", async ({
+      page,
+    }) => {
+      await page.goto("./post/");
+      // 地図をタップせず、控えの文字入力欄のみでバリデーションを通過できることを確認する。
+      await page.fill("#cb-origin", "Taiwan");
+      await page.fill("#cb-specialty", "Bubble tea");
+      await page.click("#cb-submit");
+      await expect(page.locator("#cb-err-origin")).toHaveText("");
+      await expect(page.locator("#cb-err-specialty")).toHaveText("");
+    });
+  });
+
   // Contribution integration key の allowedOrigins は http://localhost:8745 を含まない
   // (2026-08-30 実測: https://geolonia.github.io は許可済み・404ではなく
   // "Origin not allowed for this API key" で確認)。ローカル dev server からの

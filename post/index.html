@@ -47,6 +47,18 @@
       color: #eef2f8; font-size: 14px; font-family: inherit; padding: 10px 12px;
     }
     .cb-text:focus { outline: none; border-color: var(--cyan); }
+    /* cmd_754 全面刷新: 地図タップで出身地を選ぶUIを主役に据える(殿ご下命 2026-09-02)。
+       #cb-origin-map は origin-map-picker.ts が buildDom() 時に自前で中身
+       (状態文言+地図div)を組み立てる"器"(#cb-map と同じ契約)。 */
+    #cb-origin-map {
+      display: flex;
+      flex-direction: column;
+      min-height: 300px;
+      margin-bottom: 4px;
+    }
+    /* 文字入力の出身地欄は「地図が使えない方向けの控え」に格下げしたため、
+       視覚的にも一段小さく・目立たなくする(フォームの主役は地図)。 */
+    .cb-field--fallback .fb-field__label { font-size: 11px; opacity: .72; }
   </style>
 </head>
 <body class="post-page" data-bg="dark">
@@ -61,15 +73,19 @@
     </div>
 
     <form id="cb-form" class="fb-form" autocomplete="off" novalidate>
-      <label class="fb-field">
-        <span class="fb-field__label" data-en="Where are you from? (prefecture or country)" data-ja="出身地(都道府県 / 国)">Where are you from? (prefecture or country)</span>
-        <input id="cb-origin" class="cb-text cb-input" type="text" list="cb-origin-list" placeholder="e.g. Kagawa, Japan / France / Taiwan" data-placeholder-en="e.g. Kagawa, Japan / France / Taiwan" data-placeholder-ja="例: 香川県 / フランス / 台湾" maxlength="100" required />
-        <span id="cb-err-origin" class="cb-err" role="alert"></span>
-      </label>
+      <!-- 器は最初から存在させる(沈黙no-op教訓・#cb-mapと同じ契約)。中身の
+           組み立て・地図タップでの座標取得は origin-map-picker.ts が担当する。 -->
+      <div id="cb-origin-map" class="fb-chart"></div>
+
       <label class="fb-field">
         <span class="fb-field__label" data-en="A local specialty" data-ja="その土地の名物を一つ">A local specialty</span>
         <input id="cb-specialty" class="cb-text cb-input" type="text" placeholder="e.g. Sanuki udon / Fromage" data-placeholder-en="e.g. Sanuki udon / Fromage" data-placeholder-ja="例: 讃岐うどん / フロマージュ" maxlength="100" required />
         <span id="cb-err-specialty" class="cb-err" role="alert"></span>
+      </label>
+      <label class="fb-field cb-field--fallback">
+        <span class="fb-field__label" data-en="(If the map doesn't work) Where are you from?" data-ja="(地図が使えない場合) 出身地(都道府県 / 国)">(If the map doesn't work) Where are you from?</span>
+        <input id="cb-origin" class="cb-text cb-input" type="text" list="cb-origin-list" placeholder="e.g. Kagawa, Japan / France / Taiwan" data-placeholder-en="e.g. Kagawa, Japan / France / Taiwan" data-placeholder-ja="例: 香川県 / フランス / 台湾" maxlength="100" required />
+        <span id="cb-err-origin" class="cb-err" role="alert"></span>
       </label>
       <label class="fb-field">
         <span class="fb-field__label" data-en="(Optional) A hidden local spot" data-ja="(任意) 地元の隠れ名所">(Optional) A hidden local spot</span>

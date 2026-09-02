@@ -8,8 +8,16 @@
   <link rel="stylesheet" href="/src/styles/styles.css" />
   <style>
     /* post ページ専用の最小レイアウト。デッキのスライド演出(横向き固定・
-       rotate-hint 等)は継承しない — スマホ縦持ちでそのまま使える独立ページ。 */
+       rotate-hint 等)は継承しない — スマホ縦持ちでそのまま使える独立ページ。
+       ★根本原因(殿ご指摘のスクロール不能・地図の有無に関わらず発生):
+       styles.css の `html, body { overflow: hidden; }` はデッキ(全画面固定
+       スライド)前提であり、独立ページであるここまで継承していた。会場地図
+       (#cb-map)を開くとフォーム全体が1画面に収まらなくなるが、overflow:hidden
+       のためページ自体がそもそもスクロールできなかった(地図がジェスチャーを
+       奪う以前の問題)。html/body 双方で明示的に上書きする。 */
+    html { overflow-y: auto; }
     body.post-page {
+      overflow-y: auto;
       min-height: 100vh;
       display: flex;
       align-items: flex-start;

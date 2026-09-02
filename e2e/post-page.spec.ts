@@ -137,6 +137,43 @@ test.describe("独立投稿ページ /post/", () => {
     await expect(legend).toContainText("会場の投稿");
   });
 
+  test("言語切替: 地図を開く前に切り替えても、開いた後の描画は正しい言語で始まる(切替順の非依存)", async ({
+    page,
+  }) => {
+    await page.goto("./post/");
+    // ★地図(#cb-map)がまだ未生成(hidden)の状態で先に言語を切り替える。
+    // refreshLang()はDOM未生成時は安全にno-opし、buildDom()が後から
+    // getLang()を都度参照するため、順序に関わらず正しい言語で描画されねば
+    // ならない(addendum_20260902_2337の受入条件②)。
+    await page.click("#cb-lang-toggle");
+    await page.click("#cb-map-toggle");
+    const title = page.locator("#cb-map .fb-chart__title");
+    await expect(title).toContainText("会場地図");
+    const legend = page.locator("#cb-map .fb-chart__legend");
+    await expect(legend).toContainText("会場の投稿");
+  });
+
+  test("会場地図(#cb-map)は指の操作を奪わずページのスクロールを妨げない(interactive:false・殿ご指摘の是正)", async ({
+    page,
+  }) => {
+    // ★2026-09-02殿ご指摘: 地図を開くとスマホでページがスクロールできなくなった。
+    // 真因は二重にあった——①post/index.htmlがデッキ側の`html,body{overflow:hidden}`を
+    // 継承し独立ページなのにそもそもスクロール不能だった(post/index.htmlのCSSで是正)、
+    // ②地図canvas自体が指の操作を奪いドラッグをpan/zoomとして消費していた。本テストは
+    // ②を検証する:「見るもの」である会場地図はtouch-action: noneを持たず(=ブラウザの
+    // ネイティブスクロールへ委ねる)、一方「動かすもの」であるピッカー地図(#cb-origin-map)
+    // は従来通りtouch-action: noneでジェスチャーを自分で処理する(混同していないことの確認)。
+    await page.goto("./post/");
+    await page.click("#cb-map-toggle");
+    const venueCanvas = page.locator("#cb-map canvas");
+    await expect(venueCanvas).toBeVisible({ timeout: 15_000 });
+    await expect(venueCanvas).not.toHaveCSS("touch-action", "none");
+
+    const pickerCanvas = page.locator("#cb-origin-map canvas.maplibregl-canvas");
+    await expect(pickerCanvas).toBeVisible();
+    await expect(pickerCanvas).toHaveCSS("touch-action", "none");
+  });
+
   test("言語切替: 送信中/失敗状態でも切替後の言語で正しく再描画される(CodeRabbit指摘対応)", async ({
     page,
   }) => {

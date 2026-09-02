@@ -24,7 +24,6 @@ import { initContributionMap } from "./contributionMap";
 import { initOriginMapPicker } from "./originMapPicker";
 import { randomJitterMs } from "../lib/jitter";
 import { connectWithRetry } from "../lib/connectRetry";
-import { createContributionEntityRawFetch } from "../lib/rawFetchCreateEntity";
 
 /* ControlPlane障害の根治(将軍裁定 2026-09-01): 200名が一斉に/post/を開くと、
    カウンタ/WS購読のための初回トークン引き換えがControlPlaneHandlerへ一斉
@@ -302,11 +301,12 @@ export function initContributionPost(): void {
       btn.classList.remove("is-ok", "is-err");
     }
     renderSubmitLabel();
-    // ★SDKバイパス(将軍裁定 2026-09-01): db.createEntity()経由だとensureToken()が
-    // dpopRequiredの緩和を無視し無条件で/auth/nonce往復を強制するため、投稿の
-    // 送信だけはrawFetchCreateEntity.tsのX-Api-Key直付けfetchで行う(WS購読/
-    // カウンタ取得は読み取り系ゆえ従来通りSDK経由のまま)。
-    createContributionEntityRawFetch(entity)
+    // ★本番CORS障害につき復元(将軍裁定 2026-09-02 20:33): SDKバイパスの生fetch
+    // (X-Api-Key直付け)は本番オリジンからの実ブラウザ送信がpreflightでブロック
+    // される(ControlPlane側のAllow-HeadersにX-Api-Keyが無い)。db.createEntity()
+    // はAuthorizationヘッダを使いCORSを通るため、送信経路はSDK経由へ戻す
+    // (429手当て・idempotency key・地図クリック機能はここでは変更しない)。
+    db.createEntity(entity)
       .then(() => {
         submitState = "ok";
         pendingEntityId = null;

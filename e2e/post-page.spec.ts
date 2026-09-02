@@ -6,9 +6,13 @@ declare global {
   }
 }
 
-/** "地図に表示中: N 件（+仕込み M 件）..." から実投稿件数Nを取り出す。 */
+/**
+ * "地図に表示中: N 件（+仕込み M 件）..." または
+ * "Showing on map: N (+M seed)..." から実投稿件数Nを取り出す
+ * (PR#7で/postの既定言語が英語になったため両言語に対応)。
+ */
 function parseRealCount(text: string | null): number {
-  const m = /地図に表示中:\s*(\d+)/.exec(text ?? "");
+  const m = /(?:地図に表示中|Showing on map):\s*(\d+)/.exec(text ?? "");
   return m ? Number(m[1]) : NaN;
 }
 
@@ -228,7 +232,8 @@ test.describe("独立投稿ページ /post/", () => {
     // (このE2E投稿自身が地図に反映されたことを確認するための下準備)。
     await page.click("#cb-map-toggle");
     const status = page.locator("#cb-map .fb-chart__total");
-    await expect(status).toContainText(/地図に表示中/, { timeout: 15_000 });
+    // PR#7で既定言語が英語になったため、両言語の表示文言を許容する。
+    await expect(status).toContainText(/地図に表示中|Showing on map/, { timeout: 15_000 });
     const realCountBefore = parseRealCount(await status.textContent());
 
     // 会場の生データと混同されぬよう明示的にE2Eタグを付ける

@@ -31,7 +31,7 @@
 | VII | Harvest — the agent reads the room | 197 | 107 s | 105 s | 212 s | 17:44 |
 | VIII | Close — three questions | 150 | 82 s | 5 s | 87 s | **19:11** |
 
-Sum: **1151 s = 19:11** — desk buffer to 20:00 is **49 s**, plus the contingency plan below. The alternate two-question Close is 67 s spoken + the same 5 s beat = 72 s total. Word counts are machine-counted from the spoken paragraphs of this file (cue lines, on-slide text, and 🎙️ frames excluded).
+Sum: **1151 s = 19:11** — desk buffer to 20:00 is **49 s**, plus the contingency plan below. The alternate two-question Close is 67 s spoken + the same 5 s beat = 72 s total. The 1,705-word total is machine-counted from the main spoken paragraphs of this file; cue lines, on-slide text, 🎙️ frames, and the alternate two-question Close are excluded.
 
 ## Checkpoints & contingency
 
@@ -204,7 +204,7 @@ Enough claiming. Let's query.
 
 **[⏱ CHECKPOINT B — you should be here at ~14:12. More than a minute late → skip the audience question AND use the two-question Close.]**
 
-**[FALLBACK, say nothing unless needed: if the network or pipeline stalls for 15 seconds, switch to the pre-recorded demo video and narrate over it. On switching, say the honest line: "The venue network is fighting us — what follows is a recording of this same demo, made earlier. If your post fails to send, you will see an error on your phone — just try again." From that point, do not call the recorded output live: narrate the queries in past tense ("here it called…", "this is what it found"), drop the word "live" from the spoken lines below, and SKIP the audience question (Cue ⑧) — a recording cannot answer the room. Recast the two room-claims: "This is what this room looks like as a dataset" → "This is what a room like this one looks like as a dataset — recorded earlier"; in the meta-point (Slide 15), credit the recorded session's participants, not this room, and add: "Your own posts are in the same database — I will show them after the talk." Never debug on stage.]**
+**[FALLBACK, say nothing unless needed: if the network or pipeline stalls for 15 seconds, switch to the pre-recorded demo video and narrate over it. On switching, say the honest line: "The live demo is not cooperating — what follows is a recording of this same demo, made earlier. If your post fails to send, you will see an error on your phone — just try again." From that point, do not call the recorded output live: narrate the queries in past tense ("here it called…", "this is what it found"), drop the word "live" from the spoken lines below, and SKIP the audience question (Cue ⑧) — a recording cannot answer the room. Recast the two room-claims: "This is what this room looks like as a dataset" → "This is what a room like this one looks like as a dataset — recorded earlier"; in the meta-point (Slide 15), credit the recorded session's participants, not this room, and add: "Your own posts are in the same database — I will show them after the talk." Never debug on stage.]**
 
 **[SLIDE 14 — DEMO CUE ④: map goes FULL SCREEN. Beat — let the full map land. This is the visual payoff of the whole talk. Then split-screen: map + Claude connected to the broker's /mcp endpoint.]**
 

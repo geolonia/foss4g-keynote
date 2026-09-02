@@ -108,6 +108,27 @@ describe("connectWithRetry", () => {
     expect(() => cleanup()).not.toThrow(); // no-op cleanupが安全に呼べること
   });
 
+  it("保留中の再試行タイマーがある間に複数のerrorが連続発火しても、重複connect()や過剰なattempt前進を起こさない(CodeRabbit指摘・PR#11)", async () => {
+    const db = fakeDb();
+    connectWithRetry(db as never, { maxAttempts: 5, baseDelayMs: 1000 });
+    expect(db.connect).toHaveBeenCalledTimes(1);
+
+    // 最初のタイマーが実行される前に複数回errorが発火するケース。
+    db.emit("error");
+    db.emit("error");
+    db.emit("error");
+
+    // 1回目のerrorでattempt=1のタイマー(1000ms)のみが積まれ、
+    // 後続の2回は保留中タイマーがある間の追加発火として無視されねばならない。
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(db.connect).toHaveBeenCalledTimes(2); // 3回でなく2回であること
+
+    // タイマー実行後は次のerrorを正しく受け付け、次のattempt(2)分のタイマーを積む。
+    db.emit("error");
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(db.connect).toHaveBeenCalledTimes(3);
+  });
+
   it("cleanup() unsubscribes so no further retries fire (コンポーネント破棄時の安全性)", async () => {
     const db = fakeDb();
     const onGiveUp = vi.fn();

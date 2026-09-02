@@ -82,6 +82,10 @@ export function connectWithRetry(db: GeonicDB, opts: ConnectRetryOptions = {}): 
 
   function onError(): void {
     if (state.settled) return;
+    // 保留中の再試行タイマーがある間は追加のerrorを無視する(CodeRabbit指摘・PR#11)。
+    // 無視しないと、最初のタイマーが実行される前にerrorが複数回発火した場合、
+    // db.connect()の重複呼び出し・attemptの過剰前進が起きる。
+    if (state.timer) return;
     state.attempt++;
     if (state.attempt >= maxAttempts) {
       const callbacks = [...state.giveUpCallbacks];
@@ -91,6 +95,9 @@ export function connectWithRetry(db: GeonicDB, opts: ConnectRetryOptions = {}): 
     }
     const delay = baseDelayMs * 2 ** (state.attempt - 1) + randomJitterMs(500);
     state.timer = setTimeout(() => {
+      // db.connect()の呼び出し前にクリアする(呼び出しが同期的にerrorを
+      // 再発火させても、上のガードに引っかからず正しく次の試行を積めるように)。
+      state.timer = 0;
       db.connect().catch(() => {
         /* connect()自体は429ではrejectしない(上記コメント参照)。
            万一reject経路があっても'error'側で拾えるためここは無視してよい。 */

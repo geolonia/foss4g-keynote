@@ -97,11 +97,17 @@ APIキーの実値は、この後の手順の**コマンド引数・設定ファ
 600権限)を1つ作り、②③はそれを参照する:
 
 ```bash
-umask 077
-{
-  printf 'X-Api-Key: %s\n' "$(security find-generic-password -s 'geonicdb-foss4g2026-mcp-apikey-temp' -w)"
-  printf 'NGSILD-Tenant: foss4g_2026\n'
-} > ~/.geonicdb-mcp-headers
+# Keychain取得が失敗/空なら書き込みまで進まず「★失敗」と出る。
+# 既存ファイルが緩い権限で残っていた場合に備え、作り直し+600固定
+KEY="$(security find-generic-password -s 'geonicdb-foss4g2026-mcp-apikey-temp' -w)" \
+  && test -n "$KEY" \
+  && rm -f ~/.geonicdb-mcp-headers \
+  && (umask 077; printf 'X-Api-Key: %s\nNGSILD-Tenant: foss4g_2026\n' "$KEY" > ~/.geonicdb-mcp-headers) \
+  && chmod 600 ~/.geonicdb-mcp-headers \
+  && ls -l ~/.geonicdb-mcp-headers \
+  || echo "★失敗——①のKeychain同期/中継へ戻ること(ヘッダーファイルは書かれていない)"
+unset KEY
+# 成功なら最後に -rw-------(600)のファイルが1行表示される
 ```
 
 ### ②Claude Desktop設定
@@ -131,7 +137,8 @@ umask 077
   そのまま貼ればよい。
 - `--header-file`方式のため、この設定ファイルにAPIキーの実値は残らない
   (mcp-remote 0.8.3の`--header-file`が本番`/mcp`に対して動作することは
-  実証済み・2026-09-03、起動ログに`Loaded 2 header(s)`が出る)。
+  2026-09-03 JST未明(=2026-09-02 15時台UTC)に実測済み。起動ログに
+  `Loaded 2 header(s)`が出る)。
 
 保存後、Claude Desktopを完全に再起動(Cmd+Q → 再度起動)してください。
 
@@ -156,18 +163,21 @@ grep -c 'geonicdb-mcp-headers' ~/.claude.json   # 1以上ならパス参照の�
 
 **(a) curlで疎通確認(1行・すぐ結果が出ます)**:
 
+①で作ったヘッダーファイルを`-H @ファイル`で渡す(APIキーの実値を
+コマンド引数へ展開しない——引数はプロセス一覧から読めるため):
+
 ```bash
-curl -sS -w '\nHTTP %{http_code}\n' https://geonicdb.geolonia.com/mcp \
+curl -sS --connect-timeout 5 --max-time 30 -w '\nHTTP %{http_code}\n' \
+  https://geonicdb.geolonia.com/mcp \
   -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
-  -H "X-Api-Key: $(security find-generic-password -s 'geonicdb-foss4g2026-mcp-apikey-temp' -w)" \
-  -H "NGSILD-Tenant: foss4g_2026" \
+  -H @"$HOME/.geonicdb-mcp-headers" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-03-26","capabilities":{},"clientInfo":{"name":"check","version":"1"}}}'
 ```
 
 成功条件は**2つとも**満たすこと: 末尾に `HTTP 200` が出る、かつ本文に
-`"serverInfo":{"name":"GeonicDB"` が含まれる(この形での成功出力は
-2026-09-03に実測済み)。どちらかが欠ける(403/429/5xx・エラー本文・
-通信エラー表示)なら⑥の逃げ方へ。
+`"serverInfo":{"name":"GeonicDB"` が含まれる(この形そのままの成功出力を
+2026-09-03 JST未明に本番へ実測済み)。どちらかが欠ける(403/429/5xx・
+エラー本文・通信エラー表示・タイムアウト)なら⑥の逃げ方へ。
 
 **(b) Claude側で確認**: Claude Desktop/Codeを開き、「geonicdbという
 MCPツールで何ができるか教えて」と聞く。`entities`/`batch`/`temporal`/
@@ -208,29 +218,35 @@ Bearerトークン`$TOKEN`で`/me/api-keys`・`/me/policies`を叩くだけで
 足りる):
 
 ```bash
+# 準備: Bearerトークンもコマンド引数へ展開しない(プロセス一覧から
+# 読めるため)。600権限の一時ヘッダーファイルへ書き、-H @ファイルで渡す
+REVOKE_HDR="$(mktemp)"; chmod 600 "$REVOKE_HDR"
+printf 'Authorization: Bearer %s\nNGSILD-Tenant: foss4g_2026\n' "$TOKEN" > "$REVOKE_HDR"
+
 # 手順0: 一覧で「実際に使った鍵」のIDを照合する。固定IDを鵜呑みに
 # しない——鍵を再発行していた場合はIDが変わっており、古いIDだけ
 # 消すと実際に使った鍵が生き残る
-curl -sS -w '\nHTTP %{http_code}\n' https://geonicdb.geolonia.com/me/api-keys \
-  -H "Authorization: Bearer $TOKEN" -H "NGSILD-Tenant: foss4g_2026"
+curl -sS --connect-timeout 5 --max-time 30 -w '\nHTTP %{http_code}\n' \
+  https://geonicdb.geolonia.com/me/api-keys -H @"$REVOKE_HDR"
 # → 本件用途(foss4g2026-keynote-mcp)に該当するkeyIdを控える。
 #   発行記録(2026-09-02発行時点): keyId 4ac8b8c6-0664-428f-8f30-72ed59fca890 /
 #   policyId foss4g2026-keynote-mcp-apikey-temp。一覧の実物と一致する
 #   ことを確認してから次へ。
 
 # 手順1: 失効(DELETE。または {"isActive": false} をPATCHでも可)
-curl -sS -w '\nHTTP %{http_code}\n' -X DELETE \
-  "https://geonicdb.geolonia.com/me/api-keys/<手順0で照合したkeyId>" \
-  -H "Authorization: Bearer $TOKEN" -H "NGSILD-Tenant: foss4g_2026"
-curl -sS -w '\nHTTP %{http_code}\n' -X DELETE \
-  "https://geonicdb.geolonia.com/me/policies/<手順0で照合したpolicyId>" \
-  -H "Authorization: Bearer $TOKEN" -H "NGSILD-Tenant: foss4g_2026"
+curl -sS --connect-timeout 5 --max-time 30 -w '\nHTTP %{http_code}\n' -X DELETE \
+  "https://geonicdb.geolonia.com/me/api-keys/<手順0で照合したkeyId>" -H @"$REVOKE_HDR"
+curl -sS --connect-timeout 5 --max-time 30 -w '\nHTTP %{http_code}\n' -X DELETE \
+  "https://geonicdb.geolonia.com/me/policies/<手順0で照合したpolicyId>" -H @"$REVOKE_HDR"
 
 # 手順2: 事後確認(両方確認する)
 #  a. /me/api-keysを再取得し、当該keyIdが消えている(またはisActive:
 #     false になっている)こと
 #  b. 失効させた鍵で④(a)のcurlを再実行し、HTTP 200が「返らない」こと
 #     (401/403想定)
+
+# 後始末: 一時ヘッダーファイルを削除
+rm -f "$REVOKE_HDR"
 ```
 
 (keyId/policyIdは秘密情報ではない・APIキー本体の値のみ機微)

@@ -17,6 +17,30 @@ function parseRealCount(text: string | null): number {
 }
 
 /**
+ * db.createEntity()経由の送信復元(将軍裁定 2026-09-02 20:33・本番CORS障害の
+ * 緊急復旧)に伴い、送信直前にSDKが `/auth/nonce` → PoW → `/oauth/token` の
+ * トークン交換を必ず行うようになった(rawFetchバイパス時はこの往復が丸ごと
+ * 無かった)。difficulty:0でPoWを即時解決させ、送信成功をモックする2件の
+ * テストが本物のネットワークへ到達して待ちぼうけにならないようにする。
+ */
+async function mockAuthSuccess(page: import("@playwright/test").Page): Promise<void> {
+  await page.route("**/auth/nonce", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ challenge: "e2e-test-challenge", difficulty: 0, nonce: "e2e-test-nonce" }),
+    }),
+  );
+  await page.route("**/oauth/token", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ access_token: "e2e-test-token", expires_in: 3600, token_type: "Bearer" }),
+    }),
+  );
+}
+
+/**
  * subtask_754b: 独立投稿ページ /post/ の実ブラウザ検証。
  *
  * 2026-08-30 殿ご指摘の再発防止が本スペックの主目的:
@@ -315,6 +339,7 @@ test.describe("独立投稿ページ /post/", () => {
       page,
     }) => {
       let sentOrigin: string | null = null;
+      await mockAuthSuccess(page);
       await page.route("**/ngsi-ld/v1/entities", (route) => {
         if (route.request().method() === "POST") {
           const body = route.request().postDataJSON() as { origin?: { value?: string } };
@@ -336,6 +361,7 @@ test.describe("独立投稿ページ /post/", () => {
     test("送信成功後は地図ピッカーの表示・座標欄とも初期状態へ戻る(古いピンを引きずらない)", async ({
       page,
     }) => {
+      await mockAuthSuccess(page);
       await page.route("**/ngsi-ld/v1/entities", (route) =>
         route.request().method() === "POST"
           ? route.fulfill({ status: 201, contentType: "application/ld+json", body: "{}" })

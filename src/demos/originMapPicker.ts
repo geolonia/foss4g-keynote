@@ -76,6 +76,11 @@ export function initOriginMapPicker(
   // 「タップしてください」ではなく明示的な読み込み中の文言を出す。
   let ready = false;
   let readyTimedOut = false;
+  // CodeRabbit指摘是正(PR#14): libFailed/styleFailedをsetStatus()で直書きすると、
+  // refreshLang()(renderStatus()を呼ぶだけ)がこの失敗状態を知らず「Loading…」に
+  // 戻ってしまう。また8秒watchdogも失敗済みかを見ずreadyTimeout文言で上書きしうる。
+  // 失敗状態を変数として保持し、renderStatus()の判定に含めることで両方を防ぐ。
+  let failed: "lib" | "style" | null = null;
 
   function setStatus(msg: string): void {
     if (statusSpan) statusSpan.textContent = msg;
@@ -83,7 +88,9 @@ export function initOriginMapPicker(
 
   function renderStatus(): void {
     const s = PICKER_STR[getLang()];
-    if (pickedLatLng) setStatus(s.picked(pickedLatLng[0], pickedLatLng[1]));
+    if (failed === "lib") setStatus(s.libFailed);
+    else if (failed === "style") setStatus(s.styleFailed);
+    else if (pickedLatLng) setStatus(s.picked(pickedLatLng[0], pickedLatLng[1]));
     else if (ready) setStatus(s.title);
     else if (readyTimedOut) setStatus(s.readyTimeout);
     else setStatus(s.loading);
@@ -117,14 +124,17 @@ export function initOriginMapPicker(
     buildDom();
     GL = window.geolonia || window.maplibregl || null;
     if (!GL || typeof GL.Map !== "function") {
-      setStatus(PICKER_STR[getLang()].libFailed);
+      failed = "lib";
+      renderStatus();
       return;
     }
     // ★watchdogはスタイル取得(fetch)より前に仕掛ける: fetch自体が恒久ハングする
     // (ネットワーク不調・CDN障害等)場合、.then()の中に置くと登録自体がされず
     // 監視が機能しない(実際にこの順序ミスで一度テストが失敗した)。
     window.setTimeout(() => {
-      if (!ready) {
+      // 既にlib/style失敗が確定していれば、watchdogはより具体的なその文言を
+      // 汎用の「時間がかかっています」で上書きしてはならない(CodeRabbit指摘)。
+      if (!ready && !failed) {
         readyTimedOut = true;
         renderStatus();
       }
@@ -150,7 +160,8 @@ export function initOriginMapPicker(
       })
       .catch((err: unknown) => {
         console.error("[originMapPicker]", err);
-        setStatus(PICKER_STR[getLang()].styleFailed);
+        failed = "style";
+        renderStatus();
       });
   }
 

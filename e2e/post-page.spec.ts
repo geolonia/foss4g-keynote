@@ -377,6 +377,26 @@ test.describe("独立投稿ページ /post/", () => {
       await expect(page.locator("#cb-err-specialty")).toHaveText("");
     });
 
+    test("地図ピッカー: スタイル読込失敗の文言は、言語切替でも8秒watchdog発火後も上書きされない(CodeRabbit指摘・PR#14)", async ({
+      page,
+    }) => {
+      // スタイル取得自体を失敗させ(fetchをreject)、styleFailed状態を即座に発火させる。
+      await page.route("**/assets/map-style.json", (route) => route.abort());
+      await page.goto("./post/");
+      const status = page.locator("#cb-origin-map .fb-chart__title");
+      await expect(status).toHaveText("Map unavailable — please use the text field below");
+
+      // 言語切替(refreshLang())後も、失敗状態が「Loading…」等へ戻らず
+      // 正しく翻訳された失敗文言のまま維持されること。
+      await page.click("#cb-lang-toggle");
+      await expect(status).toHaveText("地図を読み込めませんでした。下の文字入力欄をお使いください");
+
+      // MAP_READY_WATCHDOG_MS(8s)を超えても、汎用のreadyTimeout文言で
+      // 上書きされず、より具体的な失敗文言のまま保たれること。
+      await page.waitForTimeout(9000);
+      await expect(status).toHaveText("地図を読み込めませんでした。下の文字入力欄をお使いください");
+    });
+
     test("地図が使えなくても文字入力欄だけで従来どおり投稿できる(additive・地図はオプション)", async ({
       page,
     }) => {

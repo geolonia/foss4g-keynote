@@ -46,7 +46,7 @@ Sum: **1192 s = 19:52** — desk buffer to 20:00 is **8 s**, plus the contingenc
 
 **[SLIDE 1 — QR code, full screen. Nothing else. No title, no logo.]**
 
-**[STAGE NOTE (added 2026-09-02, see RUNBOOK.md) — BEFORE this cue, pre-show: open the projection page, advance once to Slide 2 until the map inset shows a post count (= WS connected), then return to Slide 1. Opening the page alone does NOT connect. ★NEVER reload the projection page during the talk — the room shares your Wi-Fi IP, and once posting starts the auth rate limit (30/min per IP) may be gone; a reload could leave the stage map dead.]**
+**[STAGE NOTE (added 2026-09-02, see RUNBOOK.md) — BEFORE this cue, pre-show: open the projection page, advance once to Slide 2 until the map inset shows a post count, verify the WebSocket is actually live (count alone can come from a history fallback — check per RUNBOOK.md: DevTools Network→WS open, no `[keynoteMap] ws` console warning), then return to Slide 1. Opening the page alone does NOT connect. ★NEVER reload the projection page during the talk — the room shares your Wi-Fi IP, and once posting starts the auth rate limit (30/min per IP) may be gone; a reload could leave the stage map dead.]**
 
 **[DEMO CUE ① — POST PROMPT. This is the moment you invite the room to post.]**
 

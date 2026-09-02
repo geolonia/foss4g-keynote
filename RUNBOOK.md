@@ -56,6 +56,135 @@
 - 英語なら: “The venue network seems busy — if your post didn’t go through, please just try again in a moment. Everything that arrives will come back at the end.”
 - ポイント: 謝りすぎない・デバッグしない・「再送すればよい」と「最後に戻ってくる」の二点だけ伝えて講演へ戻る
 
+## MCP接続(殿ご自身で登壇機にて設定・所要2分)
+
+GeonicDBの`/mcp`エンドポイントは会場Wi-Fiの投稿レート制限(IP単位30/分)とは
+**無関係な別経路**です(Bearer/APIキー認証・`/auth/nonce`を通らない・
+根拠: `src/handlers/api/index.ts:729-772`)。**携帯回線テザリングは不要**、
+会場Wi-Fiのままで構いません。
+
+### ①APIキーの受け取り
+
+1Password CLI(`op`)がこのMac miniでデスクトップアプリの承認待ちのまま
+のため、暫定的にこのMac mini(足軽の作業機)のKeychainへ格納した
+(service名: `geonicdb-foss4g2026-mcp-apikey-temp`)。
+
+- 1Passwordが後で使えるようになった場合はそちらへ移す(項目名は
+  「FOSS4G 2026 Keynote MCP (temp)」を予定)。
+- **登壇機がこのMac miniと別機の場合、Keychainはそのままでは
+  同期されない可能性がある**(iCloud Keychain同期の設定次第・
+  足軽側からは確認不可)。登壇機がこのMac mini自身、またはiCloud
+  Keychainで同期済みの別Macであれば、登壇機の端末で以下を実行すれば
+  値が取得できる:
+
+  ```bash
+  security find-generic-password -s 'geonicdb-foss4g2026-mcp-apikey-temp' -w
+  ```
+
+  同期されていない場合は、家老経由でこのMac miniから値を直接
+  中継してもらう必要がある(足軽からは殿へ値を書いて渡せないため、
+  この中継は家老または殿ご自身の操作が要る)。
+
+以下、取得した値を `<API_KEY>` として使います。
+
+### ②Claude Desktop設定
+
+`mcp-remote`(ローカルプロキシ経由で接続)を使います。設定ファイル:
+`~/Library/Application Support/Claude/claude_desktop_config.json`
+
+既存の`mcpServers`に以下を追記(既存エントリは消さないこと):
+
+```json
+{
+  "mcpServers": {
+    "geonicdb": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://geonicdb.geolonia.com/mcp",
+        "--header",
+        "X-Api-Key:<API_KEY>",
+        "--header",
+        "NGSILD-Tenant:foss4g_2026"
+      ]
+    }
+  }
+}
+```
+
+保存後、Claude Desktopを完全に再起動(Cmd+Q → 再度起動)してください。
+
+### ③Claude Code設定
+
+ターミナルで1行:
+
+```bash
+claude mcp add --transport http --scope user geonicdb https://geonicdb.geolonia.com/mcp \
+  --header "X-Api-Key: <API_KEY>" \
+  --header "NGSILD-Tenant: foss4g_2026"
+```
+
+### ④登壇機での動作確認(殿ご自身で)
+
+**(a) curlで疎通確認(1行・すぐ結果が出ます)**:
+
+```bash
+curl -s https://geonicdb.geolonia.com/mcp \
+  -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
+  -H "X-Api-Key: <API_KEY>" -H "NGSILD-Tenant: foss4g_2026" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-03-26","capabilities":{},"clientInfo":{"name":"check","version":"1"}}}'
+```
+
+`"serverInfo":{"name":"GeonicDB",...}` が返れば疎通OK。403/エラーが
+返ったら⑤の逃げ方へ。
+
+**(b) Claude側で確認**: Claude Desktop/Codeを開き、「geonicdbという
+MCPツールで何ができるか教えて」と聞く。`entities`/`batch`/`temporal`/
+`config`/`admin`の5ツールが挙がれば接続成功。実データ確認は
+「Contribution型のエンティティを一覧して」等で可能(登壇直前の
+最終確認にも使える)。
+
+### ⑤当日の問い合わせ文(台本 script-en.md 212-224行に既定・変更不要)
+
+台本CUE⑤⑥⑦でそのまま読み上げる/貼る3問(実データでの動作を
+本task範囲で実証済み・2026-09-02):
+
+1. `How many posts are there — and how many of them are our seeds?`
+2. `These posts mix Japanese, English, and more. Which ones mean the same thing? Group them. Quote your evidence.`
+3. `In three sentences — who is in this room?`
+
+CUE⑧(任意・時間があれば): `Which hometown appears most often, and what is it famous for?`
+
+### ⑥繋がらぬ時の逃げ方
+
+- curl(④a)が403/no applicable policyを返す→ 権限設定が失効した可能性。
+  家老へ直ちに連絡(swarmが数分で再設定可能な構造にしてある)。
+- curlも通らずネットワーク自体が不調 → 台本のFALLBACK節
+  (script-en.md 204行)のとおり、事前録画へ切り替え、MCP部分は
+  「過去に実行した結果」として語る(ashigaru3が保険案を並行準備中)。
+- Claudeがtools/listを返さない(接続はできたが道具が出ない)→
+  Claude Desktop/Codeの再起動、またはmcp-remoteの`--header`の
+  コロン後にスペースが入っていないか確認(Desktop設定は
+  `Header:value`、Code設定は`"Header: value"`とスペース有無が違う点に注意)。
+
+### 登壇後(必ず実施・忘れずに)
+
+以下いずれかを家老/足軽が実施し、このAPIキーとポリシーを無効化する
+(tenant_admin/super_admin不要・foss4g_2026のuserアカウント自身の
+トークンで/me/api-keys・/me/policiesを叩くだけで足りる):
+
+```
+DELETE /me/api-keys/4ac8b8c6-0664-428f-8f30-72ed59fca890
+  (または {"isActive": false} へPATCH)
+DELETE /me/policies/foss4g2026-keynote-mcp-apikey-temp
+```
+
+(keyId/policyIdは秘密情報ではない・APIキー本体の値のみ機微)
+
+台帳・dashboard恒久🚨・9/3 18:07リマインダへの記帳は家老が対応済み
+(addendum_20260903_0007参照)。
+
 ## ⑥ 本番テナント書き込みの「打ち止めの刻」と最後の掃除
 
 本番テナントへの試験書き込みは **9/3（木）10:00 JST をもって打ち止め**とする。

@@ -81,48 +81,75 @@ GeonicDBの`/mcp`エンドポイントは会場Wi-Fiの投稿レート制限(IP�
   security find-generic-password -s 'geonicdb-foss4g2026-mcp-apikey-temp' -w
   ```
 
-  同期されていない場合は、家老経由でこのMac miniから値を直接
-  中継してもらう必要がある(足軽からは殿へ値を書いて渡せないため、
-  この中継は家老または殿ご自身の操作が要る)。
+  同期されていない場合の中継経路(承認手順): 家老がこのMac miniで
+  `security find-generic-password -s 'geonicdb-foss4g2026-mcp-apikey-temp' -w`
+  を実行して値を画面に表示し、殿が登壇機で下記を実行して**Keychainへ
+  直接格納する**(`-w`を末尾に置くと対話プロンプトで入力でき、シェル
+  履歴に値が残らない)。チャット・メール・ファイルへ平文で書き残さない:
 
-以下、取得した値を `<API_KEY>` として使います。
+  ```bash
+  security add-generic-password -s 'geonicdb-foss4g2026-mcp-apikey-temp' -a "$USER" -w
+  ```
+
+APIキーの実値は、この後の手順の**コマンド引数・設定ファイルへ一切
+直接書かない**(書くとプロセス一覧・シェル履歴・永続設定に残るため)。
+代わりに、Keychainから読み出したヘッダーファイル(所有者のみ読める
+600権限)を1つ作り、②③はそれを参照する:
+
+```bash
+umask 077
+{
+  printf 'X-Api-Key: %s\n' "$(security find-generic-password -s 'geonicdb-foss4g2026-mcp-apikey-temp' -w)"
+  printf 'NGSILD-Tenant: foss4g_2026\n'
+} > ~/.geonicdb-mcp-headers
+```
 
 ### ②Claude Desktop設定
 
 `mcp-remote`(ローカルプロキシ経由で接続)を使います。設定ファイル:
 `~/Library/Application Support/Claude/claude_desktop_config.json`
 
-既存の`mcpServers`に以下を追記(既存エントリは消さないこと):
+既存の`mcpServers`オブジェクトの**中へ、次のメンバー1つだけを追記**する
+(下記をファイル全体として貼り替えないこと——既存のサーバー設定が
+消える。`"mcpServers": { ... }` の波括弧の中に、カンマ区切りで足す):
 
 ```json
-{
-  "mcpServers": {
-    "geonicdb": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://geonicdb.geolonia.com/mcp",
-        "--header",
-        "X-Api-Key:<API_KEY>",
-        "--header",
-        "NGSILD-Tenant:foss4g_2026"
-      ]
-    }
-  }
+"geonicdb": {
+  "command": "npx",
+  "args": [
+    "-y",
+    "mcp-remote",
+    "https://geonicdb.geolonia.com/mcp",
+    "--header-file",
+    "/Users/<ユーザ名>/.geonicdb-mcp-headers"
+  ]
 }
 ```
+
+- パスは**絶対パス**で書く(`~`はClaude Desktop経由では展開されない)。
+  ターミナルで `echo "$HOME/.geonicdb-mcp-headers"` を実行し、その出力を
+  そのまま貼ればよい。
+- `--header-file`方式のため、この設定ファイルにAPIキーの実値は残らない
+  (mcp-remote 0.8.3の`--header-file`が本番`/mcp`に対して動作することは
+  実証済み・2026-09-03、起動ログに`Loaded 2 header(s)`が出る)。
 
 保存後、Claude Desktopを完全に再起動(Cmd+Q → 再度起動)してください。
 
 ### ③Claude Code設定
 
-ターミナルで1行:
+Desktopと同じヘッダーファイルを参照する(APIキーの実値を`claude mcp add`
+の引数に渡さない——渡すと設定ファイル`~/.claude.json`とシェル履歴に
+実値が保存されるため):
 
 ```bash
-claude mcp add --transport http --scope user geonicdb https://geonicdb.geolonia.com/mcp \
-  --header "X-Api-Key: <API_KEY>" \
-  --header "NGSILD-Tenant: foss4g_2026"
+claude mcp add --scope user geonicdb -- npx -y mcp-remote \
+  https://geonicdb.geolonia.com/mcp --header-file "$HOME/.geonicdb-mcp-headers"
+```
+
+追加後、実値が保存されていないことを確認(ファイルパスだけが載る):
+
+```bash
+grep -c 'geonicdb-mcp-headers' ~/.claude.json   # 1以上ならパス参照のみでOK
 ```
 
 ### ④登壇機での動作確認(殿ご自身で)
@@ -130,14 +157,17 @@ claude mcp add --transport http --scope user geonicdb https://geonicdb.geolonia.
 **(a) curlで疎通確認(1行・すぐ結果が出ます)**:
 
 ```bash
-curl -s https://geonicdb.geolonia.com/mcp \
+curl -sS -w '\nHTTP %{http_code}\n' https://geonicdb.geolonia.com/mcp \
   -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
-  -H "X-Api-Key: <API_KEY>" -H "NGSILD-Tenant: foss4g_2026" \
+  -H "X-Api-Key: $(security find-generic-password -s 'geonicdb-foss4g2026-mcp-apikey-temp' -w)" \
+  -H "NGSILD-Tenant: foss4g_2026" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-03-26","capabilities":{},"clientInfo":{"name":"check","version":"1"}}}'
 ```
 
-`"serverInfo":{"name":"GeonicDB",...}` が返れば疎通OK。403/エラーが
-返ったら⑤の逃げ方へ。
+成功条件は**2つとも**満たすこと: 末尾に `HTTP 200` が出る、かつ本文に
+`"serverInfo":{"name":"GeonicDB"` が含まれる(この形での成功出力は
+2026-09-03に実測済み)。どちらかが欠ける(403/429/5xx・エラー本文・
+通信エラー表示)なら⑥の逃げ方へ。
 
 **(b) Claude側で確認**: Claude Desktop/Codeを開き、「geonicdbという
 MCPツールで何ができるか教えて」と聞く。`entities`/`batch`/`temporal`/
@@ -164,23 +194,60 @@ CUE⑧(任意・時間があれば): `Which hometown appears most often, and wha
   (script-en.md 204行)のとおり、事前録画へ切り替え、MCP部分は
   「過去に実行した結果」として語る(ashigaru3が保険案を並行準備中)。
 - Claudeがtools/listを返さない(接続はできたが道具が出ない)→
-  Claude Desktop/Codeの再起動、またはmcp-remoteの`--header`の
-  コロン後にスペースが入っていないか確認(Desktop設定は
-  `Header:value`、Code設定は`"Header: value"`とスペース有無が違う点に注意)。
+  Claude Desktop/Codeの再起動、またはヘッダーファイル
+  (`~/.geonicdb-mcp-headers`)の中身を確認——1行に`名前: 値`の形で
+  `X-Api-Key`と`NGSILD-Tenant`の2行があること(コロン後のスペースは
+  有無どちらでもよい)。mcp-remoteの起動ログに`Loaded 2 header(s)`が
+  出ていればファイルの読み込みは成功している。
 
 ### 登壇後(必ず実施・忘れずに)
 
-以下いずれかを家老/足軽が実施し、このAPIキーとポリシーを無効化する
+**(1) サーバ側: APIキーとポリシーの失効**——家老/足軽が実施する
 (tenant_admin/super_admin不要・foss4g_2026のuserアカウント自身の
-トークンで/me/api-keys・/me/policiesを叩くだけで足りる):
+Bearerトークン`$TOKEN`で`/me/api-keys`・`/me/policies`を叩くだけで
+足りる):
 
-```
-DELETE /me/api-keys/4ac8b8c6-0664-428f-8f30-72ed59fca890
-  (または {"isActive": false} へPATCH)
-DELETE /me/policies/foss4g2026-keynote-mcp-apikey-temp
+```bash
+# 手順0: 一覧で「実際に使った鍵」のIDを照合する。固定IDを鵜呑みに
+# しない——鍵を再発行していた場合はIDが変わっており、古いIDだけ
+# 消すと実際に使った鍵が生き残る
+curl -sS -w '\nHTTP %{http_code}\n' https://geonicdb.geolonia.com/me/api-keys \
+  -H "Authorization: Bearer $TOKEN" -H "NGSILD-Tenant: foss4g_2026"
+# → 本件用途(foss4g2026-keynote-mcp)に該当するkeyIdを控える。
+#   発行記録(2026-09-02発行時点): keyId 4ac8b8c6-0664-428f-8f30-72ed59fca890 /
+#   policyId foss4g2026-keynote-mcp-apikey-temp。一覧の実物と一致する
+#   ことを確認してから次へ。
+
+# 手順1: 失効(DELETE。または {"isActive": false} をPATCHでも可)
+curl -sS -w '\nHTTP %{http_code}\n' -X DELETE \
+  "https://geonicdb.geolonia.com/me/api-keys/<手順0で照合したkeyId>" \
+  -H "Authorization: Bearer $TOKEN" -H "NGSILD-Tenant: foss4g_2026"
+curl -sS -w '\nHTTP %{http_code}\n' -X DELETE \
+  "https://geonicdb.geolonia.com/me/policies/<手順0で照合したpolicyId>" \
+  -H "Authorization: Bearer $TOKEN" -H "NGSILD-Tenant: foss4g_2026"
+
+# 手順2: 事後確認(両方確認する)
+#  a. /me/api-keysを再取得し、当該keyIdが消えている(またはisActive:
+#     false になっている)こと
+#  b. 失効させた鍵で④(a)のcurlを再実行し、HTTP 200が「返らない」こと
+#     (401/403想定)
 ```
 
 (keyId/policyIdは秘密情報ではない・APIキー本体の値のみ機微)
+
+**(2) 登壇機側: 鍵の痕跡の撤去**——殿ご自身または家老が実施する:
+
+```bash
+rm -f ~/.geonicdb-mcp-headers                                              # ヘッダーファイル
+security delete-generic-password -s 'geonicdb-foss4g2026-mcp-apikey-temp'  # Keychain
+claude mcp remove --scope user geonicdb                                    # Claude Code設定
+```
+
+- Claude Desktopは`claude_desktop_config.json`から`"geonicdb"`メンバーを
+  手で削除して再起動(設定にはファイルパスしか書いていないが、登壇が
+  済めば設定ごと不要のため)。
+- このMac mini(足軽作業機)のKeychain格納分も同じ
+  `security delete-generic-password`で削除する。
 
 台帳・dashboard恒久🚨・9/3 18:07リマインダへの記帳は家老が対応済み
 (addendum_20260903_0007参照)。

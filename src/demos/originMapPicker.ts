@@ -13,12 +13,21 @@
 import { byId } from "../lib/dom";
 import { formatCoordOrigin } from "../lib/originGeo";
 
-const VENUE_CENTER: [number, number] = [132.4596, 34.3963];
-/* ★殿ご下命(2026-09-02 22:23): 初期ズームを日本寄りの4.2から世界全体が
-   見える1.5相当へ変更。地名は文字欄(#cb-origin)が担保するため、地図の
-   ピンは大まかな位置で足りる——海外の参加者が縮小・移動を強いられず、
-   日本の参加者も一度つまむだけで会場付近へ寄れる。 */
-const PICKER_ZOOM = 1.5;
+/* ★殿ご下命(2026-09-02 22:23、是正 22:53): 会場中心(広島)+固定ズームでは
+   スマホ縦長の細い画面で欧州・アフリカ・南北アメリカが画面外に落ちる
+   （中心をずらしただけでは狙いを達しない）。地名は文字欄(#cb-origin)が
+   担保するため地図のピンは大まかな位置で足りる——ゆえに投稿ページの
+   初期表示に会場中心は不要（会場中心は投影側だけの役目）。
+   fitBounds で世界規模の範囲へ実際に合わせ、renderWorldCopies: true で
+   地図を横に繋げて行き止まりを消す。fitBounds は実コンテナの縦横比を
+   見て計算するため、縦長のスマホでも横長のPCでも実際に世界が収まる。 */
+const WORLD_BOUNDS: [[number, number], [number, number]] = [
+  [-170, -58],
+  [170, 78],
+];
+// fitBounds が使えない場合の fallback（経度0〜90帯・中心に寄せず世界規模で開く）。
+const WORLD_FALLBACK_CENTER: [number, number] = [20, 10];
+const WORLD_FALLBACK_ZOOM = 0.6;
 /* ★沈黙no-op対策(このリポジトリで既出6件目相当・#cb-mapのMAP_LOADING_WATCHDOG_MSに倣う):
    WebGL非対応・タブがバックグラウンドに回った等の理由で"idle"イベントが
    一度も発火しない場合、"Loading map…"に永久固定させず、文字入力欄
@@ -152,10 +161,13 @@ export function initOriginMapPicker(
         map = new GL!.Map({
           container: mapDiv!,
           style,
-          center: VENUE_CENTER,
-          zoom: PICKER_ZOOM,
-          renderWorldCopies: false,
+          center: WORLD_FALLBACK_CENTER,
+          zoom: WORLD_FALLBACK_ZOOM,
+          renderWorldCopies: true,
         });
+        if (typeof map.fitBounds === "function") {
+          map.fitBounds(WORLD_BOUNDS, { padding: 24, animate: false });
+        }
         map.once("idle", () => {
           ready = true;
           renderStatus();

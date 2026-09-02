@@ -137,6 +137,95 @@ test.describe("独立投稿ページ /post/", () => {
     await expect(legend).toContainText("会場の投稿");
   });
 
+  test("言語切替: 地図を開く前に切り替えても、開いた後の描画は正しい言語で始まる(切替順の非依存)", async ({
+    page,
+  }) => {
+    await page.goto("./post/");
+    // ★地図(#cb-map)がまだ未生成(hidden)の状態で先に言語を切り替える。
+    // refreshLang()はDOM未生成時は安全にno-opし、buildDom()が後から
+    // getLang()を都度参照するため、順序に関わらず正しい言語で描画されねば
+    // ならない(addendum_20260902_2337の受入条件②)。
+    await page.click("#cb-lang-toggle");
+    await page.click("#cb-map-toggle");
+    const title = page.locator("#cb-map .fb-chart__title");
+    await expect(title).toContainText("会場地図");
+    const legend = page.locator("#cb-map .fb-chart__legend");
+    await expect(legend).toContainText("会場の投稿");
+  });
+
+  test("会場地図(#cb-map)は指の操作を奪わずページのスクロールを妨げない(interactive:false・殿ご指摘の是正)", async ({
+    page,
+  }) => {
+    // ★2026-09-02殿ご指摘: 地図を開くとスマホでページがスクロールできなくなった。
+    // 真因は二重にあった——①post/index.htmlがデッキ側の`html,body{overflow:hidden}`を
+    // 継承し独立ページなのにそもそもスクロール不能だった(post/index.htmlのCSSで是正)、
+    // ②地図canvas自体が指の操作を奪いドラッグをpan/zoomとして消費していた。本テストは
+    // ②を検証する:「見るもの」である会場地図はtouch-action: noneを持たず(=ブラウザの
+    // ネイティブスクロールへ委ねる)、一方「動かすもの」であるピッカー地図(#cb-origin-map)
+    // は従来通りtouch-action: noneでジェスチャーを自分で処理する(混同していないことの確認)。
+    await page.goto("./post/");
+    await page.click("#cb-map-toggle");
+    const venueCanvas = page.locator("#cb-map canvas");
+    await expect(venueCanvas).toBeVisible({ timeout: 15_000 });
+    await expect(venueCanvas).not.toHaveCSS("touch-action", "none");
+
+    const pickerCanvas = page.locator("#cb-origin-map canvas.maplibregl-canvas");
+    await expect(pickerCanvas).toBeVisible();
+    await expect(pickerCanvas).toHaveCSS("touch-action", "none");
+  });
+
+  test.describe("実タッチスワイプでのスクロール検証(CodeRabbit指摘対応・PR#21)", () => {
+    // CodeRabbit指摘: touch-actionのCSS値だけでは「実際にスクロールできるか」を
+    // 証明しない(ブラウザの内部実装次第でCSSと実挙動が食い違いうる)。この
+    // describeブロックだけhasTouch: trueを付与し(isMobile: trueは付けない・
+    // 付けるとheadless chromiumで落ちる環境があったため他プロジェクト設定では
+    // 意図的に外している)、実タッチイベントで会場地図canvas上をスワイプして
+    // スクロール位置が実際に変化することまで確認する。
+    //
+    // ★post/index.htmlはhtml/bodyともheight固定+overflow-y: autoで、実際の
+    // スクロールコンテナはwindow(document.documentElement)ではなくbody要素
+    // 自身である(window.scrollYは常に0のまま・body.scrollTopが動く)。手動
+    // 検証で確認済み——window.scrollYを見るテストは常に失敗する。
+    test.use({ hasTouch: true });
+
+    test("会場地図canvas上を指でスワイプするとページがスクロールする", async ({ page, browserName }) => {
+      test.skip(browserName !== "chromium", "hasTouchの実タッチ挙動検証はchromium限定");
+      await page.goto("./post/");
+      await page.click("#cb-map-toggle");
+      const venueCanvas = page.locator("#cb-map canvas");
+      await expect(venueCanvas).toBeVisible({ timeout: 15_000 });
+
+      // canvasをviewport中央へ寄せる(auto-scrollで端に張り付くと、スワイプで
+      // 動ける余地が片方向にしか残らないため)。
+      await venueCanvas.evaluate((el) => el.scrollIntoView({ block: "center" }));
+      const scrollTopBefore = await page.evaluate(() => document.body.scrollTop);
+
+      const box = await venueCanvas.boundingBox();
+      if (!box) throw new Error("venueCanvas boundingBox not available");
+      const x = box.x + box.width / 2;
+      const startY = box.y + box.height / 2;
+      // 既にスクロール余地が残っている方向(上に伸びているならタッチを下方向へ
+      // 動かしscrollTopを減らす・端で余地が無ければ逆方向)へスワイプする。
+      const direction = scrollTopBefore > 0 ? 1 : -1;
+
+      const client = await page.context().newCDPSession(page);
+      const touchPoints = (y: number) => [{ x, y, force: 1, id: 1 }];
+      await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: touchPoints(startY) });
+      for (let i = 1; i <= 15; i++) {
+        await client.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: touchPoints(startY + direction * i * 10),
+        });
+        await page.waitForTimeout(30);
+      }
+      await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+
+      await expect
+        .poll(() => page.evaluate(() => document.body.scrollTop), { timeout: 5_000 })
+        .not.toBe(scrollTopBefore);
+    });
+  });
+
   test("言語切替: 送信中/失敗状態でも切替後の言語で正しく再描画される(CodeRabbit指摘対応)", async ({
     page,
   }) => {

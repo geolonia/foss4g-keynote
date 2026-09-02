@@ -227,7 +227,10 @@ export function initContributionMap(getLang: () => MapLang = () => "ja"): { refr
     renderLegend();
 
     mapDiv = document.createElement("div");
-    mapDiv.style.cssText = "flex:1 1 auto;min-height:220px;border-radius:8px;overflow:hidden;position:relative;";
+    // max-height: interactive:falseで指の操作は地図から抜けページへ渡るが、地図自体が
+    // 画面のほとんどを占めるほど大きいとその分スクロール可能領域が狭まる。上限を与える。
+    mapDiv.style.cssText =
+      "flex:1 1 auto;min-height:220px;max-height:50vh;border-radius:8px;overflow:hidden;position:relative;";
 
     mount.appendChild(title);
     mount.appendChild(legendEl);
@@ -390,6 +393,11 @@ export function initContributionMap(getLang: () => MapLang = () => "ja"): { refr
           center: VENUE_CENTER,
           zoom: INITIAL_ZOOM,
           renderWorldCopies: false,
+          // 会場地図は「見るもの」であり「動かすもの」ではない。interactive: false
+          // にしないと指の操作をcanvasが奪い、ページのスクロールができなくなる
+          // (殿ご指摘・#cb-origin-mapピッカーは別物ゆえ触れない・制御実験で実証済み:
+          // このオプション無しではスワイプがスクロールに変換されないことを確認した)。
+          interactive: false,
         });
         map.on("load", () => {
           addLayers();

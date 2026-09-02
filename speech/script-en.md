@@ -58,7 +58,7 @@ That's it. No account. No app. I will tell you why later. One promise: what you 
 
 **[DEMO CUE ② — Map inset appears bottom-right and stays for the rest of the talk. ★FROM HERE THE ROOM IS POSTING — KEEP TALKING. Do not wait in silence; the posting happens under your voice.]**
 
-**[STAGE NOTE (added 2026-09-02) — This cue = advancing the deck to Slide 2. Normally the map appears right away because the connection was established pre-show; do not reload. If it does not appear, follow RUNBOOK.md: switch to the tethered backup device or the 15-second recorded fallback.]**
+**[STAGE NOTE (added 2026-09-02) — This cue = advancing the deck to Slide 2. Normally the map appears right away because the connection was established pre-show; do not reload. If it does not appear, follow RUNBOOK.md: advance the tethered backup device to the current slide first, then switch projection to it — or use the 15-second recorded fallback.]**
 
 Bottom-right corner — those dots are your hometowns. Keep posting; the form stays open. That corner is now live infrastructure.
 

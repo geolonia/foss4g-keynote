@@ -28,6 +28,9 @@ const WORLD_BOUNDS: [[number, number], [number, number]] = [
 // fitBounds が使えない場合の fallback（経度0〜90帯・中心に寄せず世界規模で開く）。
 const WORLD_FALLBACK_CENTER: [number, number] = [20, 10];
 const WORLD_FALLBACK_ZOOM = 0.6;
+// ジオコーディング(cmd_754【4】)で地点が確定した際にflyToする先のズーム。
+// 都市/地域が視認できる程度(タップ操作の精度と同程度・番地レベルは不要)。
+const GEOCODE_FLY_ZOOM = 6;
 /* ★沈黙no-op対策(このリポジトリで既出6件目相当・#cb-mapのMAP_LOADING_WATCHDOG_MSに倣う):
    WebGL非対応・タブがバックグラウンドに回った等の理由で"idle"イベントが
    一度も発火しない場合、"Loading map…"に永久固定させず、文字入力欄
@@ -63,6 +66,14 @@ export interface OriginMapPickerApi {
   refreshLang: () => void;
   /** 投稿成功後、ピンと状態文言を初期表示へ戻す(次の投稿が古いピンを引きずらないため)。 */
   clearPin: () => void;
+  /**
+   * 実ジオコーディング(cmd_754【4】)からの結果を反映する。地図タップと同じ
+   * pinAt()を経由し座標をonPickへ渡す——「地図タップ」も「文字欄での確定
+   * ジオコーディング」も同じ器(#cb-origin-coord)を後勝ちで更新する(役割
+   * 分担は変えない・地名は文字欄のまま)。地図が未準備でも座標の反映だけは
+   * 行う(可視化できずとも投稿には使える)。
+   */
+  flyToAndPin: (lat: number, lng: number) => void;
 }
 
 /**
@@ -74,7 +85,7 @@ export function initOriginMapPicker(
   getLang: () => PickerLang = () => "en",
 ): OriginMapPickerApi {
   const container = byId("cb-origin-map");
-  if (!container) return { refreshLang: () => {}, clearPin: () => {} };
+  if (!container) return { refreshLang: () => {}, clearPin: () => {}, flyToAndPin: () => {} };
   const mount: HTMLElement = container;
 
   let GL: GeoloniaNamespace | null = null;
@@ -124,10 +135,16 @@ export function initOriginMapPicker(
 
   function pinAt(lng: number, lat: number): void {
     pickedLatLng = [lat, lng];
-    if (marker) {
-      marker.setLngLat([lng, lat]);
-    } else {
-      marker = new GL!.Marker().setLngLat([lng, lat]).addTo(map);
+    // ★ジオコーディング経由の呼び出し(flyToAndPin)は地図が未準備(loading/failed)
+    // でも起こりうる——その場合でも座標の反映(onPick)だけは行い、可視化(marker)
+    // だけを見送る(地図タップ由来の呼び出しは常にready後にのみ発生するため
+    // map/GLは必ず存在するが、ジオコーディング由来はそうとは限らない)。
+    if (map && GL) {
+      if (marker) {
+        marker.setLngLat([lng, lat]);
+      } else {
+        marker = new GL.Marker().setLngLat([lng, lat]).addTo(map);
+      }
     }
     renderStatus();
     onPick(formatCoordOrigin(lat, lng));
@@ -196,5 +213,15 @@ export function initOriginMapPicker(
     renderStatus();
   }
 
-  return { refreshLang, clearPin };
+  function flyToAndPin(lat: number, lng: number): void {
+    if (map && ready) {
+      map.flyTo({ center: [lng, lat], zoom: GEOCODE_FLY_ZOOM });
+    }
+    // 地図が未準備でもpinAt()自体はonPick(座標反映)を必ず行う——可視化できずとも
+    // 投稿には使える(originMapPickerの「地図が使えなくても文字欄で完結する」
+    // 設計方針に倣う)。
+    pinAt(lng, lat);
+  }
+
+  return { refreshLang, clearPin, flyToAndPin };
 }

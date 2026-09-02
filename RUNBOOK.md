@@ -124,7 +124,7 @@ unset KEY
   "command": "npx",
   "args": [
     "-y",
-    "mcp-remote",
+    "mcp-remote@0.8.3",
     "https://geonicdb.geolonia.com/mcp",
     "--header-file",
     "/Users/<ユーザ名>/.geonicdb-mcp-headers"
@@ -149,7 +149,7 @@ Desktopと同じヘッダーファイルを参照する(APIキーの実値を`cl
 実値が保存されるため):
 
 ```bash
-claude mcp add --scope user geonicdb -- npx -y mcp-remote \
+claude mcp add --scope user geonicdb -- npx -y mcp-remote@0.8.3 \
   https://geonicdb.geolonia.com/mcp --header-file "$HOME/.geonicdb-mcp-headers"
 ```
 
@@ -219,8 +219,10 @@ Bearerトークン`$TOKEN`で`/me/api-keys`・`/me/policies`を叩くだけで
 
 ```bash
 # 準備: Bearerトークンもコマンド引数へ展開しない(プロセス一覧から
-# 読めるため)。600権限の一時ヘッダーファイルへ書き、-H @ファイルで渡す
+# 読めるため)。600権限の一時ヘッダーファイルへ書き、-H @ファイルで渡す。
+# trapにより、Ctrl-C・途中失敗・シェル終了でも一時ファイルは必ず消える
 REVOKE_HDR="$(mktemp)"; chmod 600 "$REVOKE_HDR"
+trap 'rm -f "$REVOKE_HDR"' EXIT
 printf 'Authorization: Bearer %s\nNGSILD-Tenant: foss4g_2026\n' "$TOKEN" > "$REVOKE_HDR"
 
 # 手順0: 一覧で「実際に使った鍵」のIDを照合する。固定IDを鵜呑みに
@@ -233,11 +235,20 @@ curl -sS --connect-timeout 5 --max-time 30 -w '\nHTTP %{http_code}\n' \
 #   policyId foss4g2026-keynote-mcp-apikey-temp。一覧の実物と一致する
 #   ことを確認してから次へ。
 
-# 手順1: 失効(DELETE。または {"isActive": false} をPATCHでも可)
-curl -sS --connect-timeout 5 --max-time 30 -w '\nHTTP %{http_code}\n' -X DELETE \
-  "https://geonicdb.geolonia.com/me/api-keys/<手順0で照合したkeyId>" -H @"$REVOKE_HDR"
-curl -sS --connect-timeout 5 --max-time 30 -w '\nHTTP %{http_code}\n' -X DELETE \
-  "https://geonicdb.geolonia.com/me/policies/<手順0で照合したpolicyId>" -H @"$REVOKE_HDR"
+# 手順1: 失効(DELETE。または {"isActive": false} をPATCHでも可)。
+# 各DELETEはHTTPステータスを検査し、2xx以外なら後続へ進まず停止する
+del() {
+  local code
+  code=$(curl -sS --connect-timeout 5 --max-time 30 -o /dev/null -w '%{http_code}' \
+    -X DELETE "$1" -H @"$REVOKE_HDR")
+  echo "DELETE $1 → HTTP $code"
+  case "$code" in
+    2*) return 0 ;;
+    *)  echo "★2xx以外——ここで停止し原因を確認(トークン期限切れ/ID誤り等)"; return 1 ;;
+  esac
+}
+del "https://geonicdb.geolonia.com/me/api-keys/<手順0で照合したkeyId>" \
+  && del "https://geonicdb.geolonia.com/me/policies/<手順0で照合したpolicyId>"
 
 # 手順2: 事後確認(両方確認する)
 #  a. /me/api-keysを再取得し、当該keyIdが消えている(またはisActive:
@@ -245,8 +256,8 @@ curl -sS --connect-timeout 5 --max-time 30 -w '\nHTTP %{http_code}\n' -X DELETE 
 #  b. 失効させた鍵で④(a)のcurlを再実行し、HTTP 200が「返らない」こと
 #     (401/403想定)
 
-# 後始末: 一時ヘッダーファイルを削除
-rm -f "$REVOKE_HDR"
+# 後始末: 一時ヘッダーファイルを削除(異常終了時はtrapが同じ削除を行う)
+rm -f "$REVOKE_HDR"; trap - EXIT
 ```
 
 (keyId/policyIdは秘密情報ではない・APIキー本体の値のみ機微)

@@ -83,4 +83,23 @@ describe("geocodePlace", () => {
     // がフェイクタイマーの進行として反映されているはず。
     expect(elapsed).toBeGreaterThanOrEqual(1000);
   });
+
+  it("serializes two calls fired back-to-back without awaiting between them (no simultaneous wake-up race)", async () => {
+    const fetchTimes: number[] = [];
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      fetchTimes.push(Date.now());
+      return { ok: true, json: async () => [{ lat: "1", lon: "2", display_name: "x" }] };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // awaitを挟まず同期的に2件同時発火させる—両者が同じlastRequestAtを見て
+    // 同時に起床するレース(CodeRabbit指摘)を再現する。
+    const first = geocodePlace("France");
+    const second = geocodePlace("Taiwan");
+    await vi.runAllTimersAsync();
+    await Promise.all([first, second]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchTimes[1] - fetchTimes[0]).toBeGreaterThanOrEqual(1000);
+  });
 });

@@ -189,6 +189,19 @@ export function initOriginMapPicker(
           ready = true;
           renderStatus();
           map.on("click", (ev: any) => pinAt(ev.lngLat.lng, ev.lngLat.lat));
+          // ★地図が未準備のうちにジオコーディング(flyToAndPin)が先に起きて
+          // いた場合、当時はflyTo/markerを見送っていた(座標の反映=onPickだけは
+          // 済んでいる)。ready後にその座標を可視化のみ再適用する
+          // (onPickは再度呼ばない=二重反映を防ぐ・CodeRabbit指摘)。
+          if (pickedLatLng) {
+            const [lat, lng] = pickedLatLng;
+            map.flyTo({ center: [lng, lat], zoom: GEOCODE_FLY_ZOOM, animate: false });
+            if (marker) {
+              marker.setLngLat([lng, lat]);
+            } else if (GL) {
+              marker = new GL.Marker().setLngLat([lng, lat]).addTo(map);
+            }
+          }
         });
       })
       .catch((err: unknown) => {

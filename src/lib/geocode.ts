@@ -19,6 +19,24 @@ const MIN_INTERVAL_MS = 1100;
 
 let lastRequestAt = 0;
 let inFlight: AbortController | null = null;
+// 直列化キュー: 2件の呼び出しが「待ち」に同時突入すると、両者とも同じ
+// lastRequestAtを見て同時に起床し1req/秒を破ってしまう(CodeRabbit指摘)。
+// 各呼び出しをこのキューへ鎖状につなぎ、前の呼び出しがlastRequestAtを
+// 更新し終えてから次の呼び出しの待ち時間計算が始まるようにする。
+let throttleQueue: Promise<void> = Promise.resolve();
+
+function throttle(): Promise<void> {
+  const wait = throttleQueue.then(() => {
+    const elapsed = Date.now() - lastRequestAt;
+    return elapsed < MIN_INTERVAL_MS
+      ? new Promise<void>((resolve) => setTimeout(resolve, MIN_INTERVAL_MS - elapsed))
+      : undefined;
+  });
+  throttleQueue = wait.then(() => {
+    lastRequestAt = Date.now();
+  });
+  return throttleQueue;
+}
 
 export interface GeocodeResult {
   lat: number;
@@ -35,11 +53,7 @@ export async function geocodePlace(query: string): Promise<GeocodeResult | null>
   const q = query.trim();
   if (!q) return null;
 
-  const elapsed = Date.now() - lastRequestAt;
-  if (elapsed < MIN_INTERVAL_MS) {
-    await new Promise((resolve) => setTimeout(resolve, MIN_INTERVAL_MS - elapsed));
-  }
-  lastRequestAt = Date.now();
+  await throttle();
 
   // 直前の問い合わせがまだ飛んでいれば打ち切る(同一フィールドへの立て続けの
   // 確定操作が古い応答で新しい結果を上書きしないようにするため)。

@@ -46,6 +46,8 @@ Sum: **1192 s = 19:52** — desk buffer to 20:00 is **8 s**, plus the contingenc
 
 **[SLIDE 1 — QR code, full screen. Nothing else. No title, no logo.]**
 
+**[STAGE NOTE (added 2026-09-02, see RUNBOOK.md) — BEFORE this cue, pre-show: open the projection page, advance once to Slide 2 until the map inset shows a post count (= WS connected), then return to Slide 1. Opening the page alone does NOT connect. ★NEVER reload the projection page during the talk — the room shares your Wi-Fi IP, and once posting starts the auth rate limit (30/min per IP) may be gone; a reload could leave the stage map dead.]**
+
 **[DEMO CUE ① — POST PROMPT. This is the moment you invite the room to post.]**
 
 Good morning. Don't listen to me yet.
@@ -55,6 +57,8 @@ Please take out your phone. Point it at this code. A small form opens. Two quest
 That's it. No account. No app. I will tell you why later. One promise: what you just typed will not disappear. It will come back at the end.
 
 **[DEMO CUE ② — Map inset appears bottom-right and stays for the rest of the talk. ★FROM HERE THE ROOM IS POSTING — KEEP TALKING. Do not wait in silence; the posting happens under your voice.]**
+
+**[STAGE NOTE (added 2026-09-02) — This cue = advancing the deck to Slide 2. The map reveals instantly because the connection was established pre-show; no reload, no waiting.]**
 
 Bottom-right corner — those dots are your hometowns. Keep posting; the form stays open. That corner is now live infrastructure.
 

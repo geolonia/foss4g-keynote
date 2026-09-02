@@ -249,16 +249,10 @@ test.describe("独立投稿ページ /post/", () => {
     expect(box?.height ?? 0).toBeGreaterThan(0);
   });
 
-  test.describe("地図から選ぶ投稿UI(cmd_754 全面刷新・殿ご下命 2026-09-02)", () => {
-    test("地図(#cb-origin-map)はページ読込直後から表示され、タップすると#cb-originにgeo:座標が自動入力される", async ({
-      page,
-    }) => {
-      await page.goto("./post/");
+  test.describe("地図から選ぶ投稿UI(cmd_754 全面刷新・殿ご下命 2026-09-02・将軍是正 2026-09-02 19:01)", () => {
+    /** ピッカー地図の描画完了(タップ可能状態)まで待ち、中心をタップするヘルパー。 */
+    async function tapPickerMapCenter(page: import("@playwright/test").Page) {
       const pickerMap = page.locator("#cb-origin-map");
-      await expect(pickerMap).toBeVisible();
-
-      // 器だけでなく実際に地図(canvas)が描画されていること(沈黙no-op再発防止・
-      // #cb-mapの教訓をこの新しい地図にも適用する)。
       const canvas = pickerMap.locator("canvas.maplibregl-canvas");
       await expect(canvas).toBeVisible({ timeout: 15_000 });
       // ★canvasの描画とクリックハンドラの実際の反応可能化には僅かなずれがある
@@ -269,39 +263,77 @@ test.describe("独立投稿ページ /post/", () => {
         "Tap the map to select where you're from",
         { timeout: 15_000 },
       );
-
       const box = await canvas.boundingBox();
       expect(box?.width ?? 0).toBeGreaterThan(0);
-      await page.mouse.click((box!.x + box!.width / 2), (box!.y + box!.height / 2));
+      await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    }
+
+    test("地図(#cb-origin-map)はページ読込直後から表示され、タップすると座標専用の隠し欄(#cb-origin-coord)にgeo:座標が入る——地名欄(#cb-origin)は上書きされない", async ({
+      page,
+    }) => {
+      await page.goto("./post/");
+      await expect(page.locator("#cb-origin-map")).toBeVisible();
+      await tapPickerMapCenter(page);
 
       // ジオコーディング・外部APIを一切経由せず、タップ座標がそのまま
-      // origin文字列(geo:<lat>,<lng>)へ流し込まれる(originGeo.ts参照)。
-      await expect(page.locator("#cb-origin")).toHaveValue(/^geo:-?\d+\.\d{4},-?\d+\.\d{4}$/);
+      // 座標専用の隠し欄へ流し込まれる(originGeo.ts参照)。
+      await expect(page.locator("#cb-origin-coord")).toHaveValue(/^geo:-?\d+\.\d{4},-?\d+\.\d{4}$/);
+      // ★将軍是正(2026-09-02 19:01): 地図タップは地名欄を上書きしてはならない
+      // (講演の山場「広島・宮城・ブルターニュから牡蠣」のため地名がそのまま残る必要がある)。
+      await expect(page.locator("#cb-origin")).toHaveValue("");
     });
 
-    test("地図タップ後もそのまま送信フローに乗る(送信失敗表示への遷移は従来通り)", async ({ page }) => {
+    test("地名欄に入力済みのまま地図をタップしても、地名は上書きされず座標は隠し欄に別で入る", async ({
+      page,
+    }) => {
+      await page.goto("./post/");
+      await page.fill("#cb-origin", "Hiroshima");
+      await tapPickerMapCenter(page);
+
+      await expect(page.locator("#cb-origin")).toHaveValue("Hiroshima");
+      await expect(page.locator("#cb-origin-coord")).toHaveValue(/^geo:-?\d+\.\d{4},-?\d+\.\d{4}$/);
+    });
+
+    test("地図タップ後もそのまま送信フローに乗る(送信失敗表示への遷移は従来通り)——失敗後も座標欄の値は保持される", async ({
+      page,
+    }) => {
       await page.route("**/ngsi-ld/v1/entities", (route) =>
         route.request().method() === "POST" ? route.abort() : route.continue(),
       );
       await page.goto("./post/");
-      const canvas = page.locator("#cb-origin-map canvas.maplibregl-canvas");
-      await expect(canvas).toBeVisible({ timeout: 15_000 });
-      await expect(page.locator("#cb-origin-map .fb-chart__title")).toHaveText(
-        "Tap the map to select where you're from",
-        { timeout: 15_000 },
-      );
-      const box = await canvas.boundingBox();
-      await page.mouse.click((box!.x + box!.width / 2), (box!.y + box!.height / 2));
-      await expect(page.locator("#cb-origin")).toHaveValue(/^geo:/);
+      await tapPickerMapCenter(page);
+      await expect(page.locator("#cb-origin-coord")).toHaveValue(/^geo:/);
 
       await page.fill("#cb-specialty", "Sanuki udon");
       await page.click("#cb-submit");
       await expect(page.locator("#cb-submit")).toHaveText(/Failed — please retry/, { timeout: 15_000 });
-      // 地図タップで埋めたoriginの値は失敗後も保持される(タップし直さず再送信できる)。
-      await expect(page.locator("#cb-origin")).toHaveValue(/^geo:/);
+      // 地図タップで埋めた座標欄の値は失敗後も保持される(タップし直さず再送信できる)。
+      await expect(page.locator("#cb-origin-coord")).toHaveValue(/^geo:/);
     });
 
-    test("送信成功後は地図ピッカーの表示・#cb-originとも初期状態へ戻る(古いピンを引きずらない)", async ({
+    test("地図だけ・地名を一切入力せずに送信できる(要求条件『地図だけでも送れる』)——送信entityのoriginにgeo:座標が入る", async ({
+      page,
+    }) => {
+      let sentOrigin: string | null = null;
+      await page.route("**/ngsi-ld/v1/entities", (route) => {
+        if (route.request().method() === "POST") {
+          const body = route.request().postDataJSON() as { origin?: { value?: string } };
+          sentOrigin = body.origin?.value ?? null;
+          return route.fulfill({ status: 201, contentType: "application/ld+json", body: "{}" });
+        }
+        return route.continue();
+      });
+      await page.goto("./post/");
+      await tapPickerMapCenter(page);
+      await expect(page.locator("#cb-origin")).toHaveValue(""); // 地名は空のまま(意図的に未入力)
+
+      await page.fill("#cb-specialty", "Sanuki udon");
+      await page.click("#cb-submit");
+      await expect(page.locator("#cb-submit")).toHaveText(/Submitted! Thank you/, { timeout: 15_000 });
+      expect(sentOrigin).toMatch(/^geo:-?\d+\.\d{4},-?\d+\.\d{4}$/);
+    });
+
+    test("送信成功後は地図ピッカーの表示・座標欄とも初期状態へ戻る(古いピンを引きずらない)", async ({
       page,
     }) => {
       await page.route("**/ngsi-ld/v1/entities", (route) =>
@@ -310,23 +342,16 @@ test.describe("独立投稿ページ /post/", () => {
           : route.continue(),
       );
       await page.goto("./post/");
-      const canvas = page.locator("#cb-origin-map canvas.maplibregl-canvas");
-      await expect(canvas).toBeVisible({ timeout: 15_000 });
-      await expect(page.locator("#cb-origin-map .fb-chart__title")).toHaveText(
-        "Tap the map to select where you're from",
-        { timeout: 15_000 },
-      );
-      const box = await canvas.boundingBox();
-      await page.mouse.click((box!.x + box!.width / 2), (box!.y + box!.height / 2));
-      await expect(page.locator("#cb-origin")).toHaveValue(/^geo:/);
+      await tapPickerMapCenter(page);
+      await expect(page.locator("#cb-origin-coord")).toHaveValue(/^geo:/);
 
       await page.fill("#cb-specialty", "Sanuki udon");
       await page.click("#cb-submit");
       await expect(page.locator("#cb-submit")).toHaveText(/Submitted! Thank you/, { timeout: 15_000 });
 
-      // form.reset()でorigin欄の値自体は空になる。加えて地図ピッカー側の状態文言も
+      // form.reset()で座標欄の値自体は空になる。加えて地図ピッカー側の状態文言も
       // 「選択済み」から初期のヒント文言へ戻ること(originPicker.clearPin())を確認する。
-      await expect(page.locator("#cb-origin")).toHaveValue("");
+      await expect(page.locator("#cb-origin-coord")).toHaveValue("");
       await expect(page.locator("#cb-origin-map .fb-chart__title")).toHaveText(
         "Tap the map to select where you're from",
       );

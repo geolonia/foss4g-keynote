@@ -19,9 +19,6 @@ export interface ValidationResult {
 export const ORIGIN_MAX = 100;
 export const SPECIALTY_MAX = 100;
 export const HIDDEN_SPOT_MAX = 200;
-// cmd_757: placeName は ContributionInput に属さない独立入力(readPlaceName()参照)だが、
-// 上限値はCONTRIBUTION_MODEL.propertyDetails.placeName.validation.maxLengthと一致させる。
-export const PLACENAME_MAX = 100;
 
 export function validateContribution(input: ContributionInput): ValidationResult {
   const errors: ValidationResult["errors"] = {};

@@ -238,7 +238,6 @@ test.describe("独立投稿ページ /post/", () => {
     await page.goto("./post/");
     await page.fill("#cb-origin", "France");
     await page.fill("#cb-specialty", "Fromage");
-    await page.fill("#cb-placename", "Paris");
     await page.click("#cb-submit");
     await expect(page.locator("#cb-submit")).toHaveText(/Failed — please retry/, { timeout: 15_000 });
 
@@ -419,7 +418,6 @@ test.describe("独立投稿ページ /post/", () => {
       await expect(page.locator("#cb-origin-coord")).toHaveValue(/^geo:/);
 
       await page.fill("#cb-specialty", "Sanuki udon");
-      await page.fill("#cb-placename", "Takamatsu");
       await page.click("#cb-submit");
       await expect(page.locator("#cb-submit")).toHaveText(/Failed — please retry/, { timeout: 15_000 });
       // 地図タップで埋めた座標欄の値は失敗後も保持される(タップし直さず再送信できる)。
@@ -444,7 +442,6 @@ test.describe("独立投稿ページ /post/", () => {
       await expect(page.locator("#cb-origin")).toHaveValue(""); // 地名は空のまま(意図的に未入力)
 
       await page.fill("#cb-specialty", "Sanuki udon");
-      await page.fill("#cb-placename", "Takamatsu");
       await page.click("#cb-submit");
       await expect(page.locator("#cb-submit")).toHaveText(/Submitted! Thank you/, { timeout: 15_000 });
       expect(sentOrigin).toMatch(/^geo:-?\d+\.\d{4},-?\d+\.\d{4}$/);
@@ -464,7 +461,6 @@ test.describe("独立投稿ページ /post/", () => {
       await expect(page.locator("#cb-origin-coord")).toHaveValue(/^geo:/);
 
       await page.fill("#cb-specialty", "Sanuki udon");
-      await page.fill("#cb-placename", "Takamatsu");
       await page.click("#cb-submit");
       await expect(page.locator("#cb-submit")).toHaveText(/Submitted! Thank you/, { timeout: 15_000 });
 

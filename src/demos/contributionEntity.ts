@@ -26,7 +26,6 @@ export const CONTRIBUTION_MODEL = {
     origin: { ngsiType: "Property", valueType: "string", example: "サンプル県", required: true, description: "出身地（都道府県 / 国レベル）", validation: { minLength: 1, maxLength: 100 } },
     specialty: { ngsiType: "Property", valueType: "string", example: "サンプル名物", required: true, description: "その土地の名物（自由入力）", validation: { minLength: 1, maxLength: 100 } },
     hiddenSpot: { ngsiType: "Property", valueType: "string", example: "サンプル公園の裏道", required: false, description: "地元の人は知っているが地図に載っていない場所（任意）", validation: { maxLength: 200 } },
-    placeName: { ngsiType: "Property", valueType: "string", example: "Nairobi", required: true, description: "棒グラフ・集計・MCP問答向けの読める地名(cmd_757・originは地図ピン用のgeo:座標も入りうるため分離)", validation: { minLength: 1, maxLength: 100 } },
     seeded: { ngsiType: "Property", valueType: "boolean", example: false, required: true, description: "主催者による事前仕込みか否か", defaultValue: false },
     submittedAt: { ngsiType: "Property", valueType: "datetime", example: "2026-09-03T13:45:00.000Z", required: true, description: "投稿日時（サーバ側で設定）" },
   },

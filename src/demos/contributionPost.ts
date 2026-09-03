@@ -60,6 +60,7 @@ const STR = {
       specialtyRequired: "Please enter a local specialty",
       specialtyMax: `Please keep it within ${SPECIALTY_MAX} characters`,
       hiddenSpotMax: `Please keep it within ${HIDDEN_SPOT_MAX} characters`,
+      placeNameRequired: "Please enter your place name",
     },
   },
   ja: {
@@ -77,6 +78,7 @@ const STR = {
       specialtyRequired: "名物を入力してください",
       specialtyMax: `名物は${SPECIALTY_MAX}文字以内で入力してください`,
       hiddenSpotMax: `隠れ名所は${HIDDEN_SPOT_MAX}文字以内で入力してください`,
+      placeNameRequired: "地名を入力してください",
     },
   },
 } as const;
@@ -108,6 +110,20 @@ function readInput(): ContributionInput {
     specialty: byId<HTMLInputElement>("cb-specialty")?.value ?? "",
     hiddenSpot: byId<HTMLInputElement>("cb-hiddenSpot")?.value ?? "",
   };
+}
+
+/** cmd_757: origin(地図タップのgeo:座標も入りうる・地図ピン用)とは独立に、
+ *  棒グラフ・集計・MCP問答が必ず地名として読める文字列を持てるようにするための
+ *  必須の新規入力。originのロジック(geo:座標フォールバック含む)には一切影響しない。 */
+function readPlaceName(): string {
+  return byId<HTMLInputElement>("cb-placename")?.value ?? "";
+}
+
+function renderPlaceNameError(lang: Lang, isEmpty: boolean): void {
+  const el = byId("cb-err-placename");
+  if (el) el.textContent = isEmpty ? STR[lang].err.placeNameRequired : "";
+  const fieldInput = byId<HTMLInputElement>("cb-placename");
+  if (fieldInput) fieldInput.setAttribute("aria-invalid", String(isEmpty));
 }
 
 /** raw入力とvalidateContributionの結果から、フィールド毎に「必須未入力か・
@@ -257,6 +273,7 @@ export function initContributionPost(): void {
   // 直前の送信が成功していない間は同じidを使い回し、成功したら次の新規投稿のために
   // クリアする(idempotency key相当)。
   let pendingEntityId: string | null = null;
+  let lastPlaceNameEmpty = false;
   function renderSubmitLabel(): void {
     if (!btn) return;
     btn.textContent =
@@ -275,7 +292,11 @@ export function initContributionPost(): void {
     const result = validateContribution(raw);
     lastErrors = result.errors;
     renderErrors(lang, raw, result.errors);
-    if (!result.ok) {
+    const placeNameRaw = readPlaceName();
+    const placeName = placeNameRaw.trim();
+    lastPlaceNameEmpty = placeName.length === 0;
+    renderPlaceNameError(lang, lastPlaceNameEmpty);
+    if (!result.ok || lastPlaceNameEmpty) {
       // CodeRabbit指摘(PR#7): 成功/失敗直後の一時表示(is-ok/is-err・タイマー)を
       // 引きずったまま無効な値で再送信すると、バリデーションエラーと
       // 「投稿しました!」が同時に表示されてしまう。無効入力時は必ず
@@ -293,6 +314,9 @@ export function initContributionPost(): void {
       submittedAt: nowIso(),
       id: pendingEntityId ?? undefined,
     });
+    // cmd_757 最小追加: originGeo/地図経路(origin属性)には一切触れず、
+    // 棒グラフ・集計・MCP問答向けの読める地名だけを新規属性として追加する。
+    entity.placeName = { type: "Property", value: placeName };
     pendingEntityId = entity.id as string;
     if (btnTimer) window.clearTimeout(btnTimer);
     submitState = "sending";
@@ -321,6 +345,8 @@ export function initContributionPost(): void {
         if (originCoordEl) originCoordEl.value = "";
         originPicker.clearPin(); // 次の投稿が古いピンを引きずらないよう表示を初期化する
         lastErrors = null;
+        lastPlaceNameEmpty = false;
+        renderPlaceNameError(lang, false);
         btnTimer = window.setTimeout(() => {
           submitState = "idle";
           btn?.classList.remove("is-ok");
@@ -366,6 +392,7 @@ export function initContributionPost(): void {
       lastErrors = errors;
       renderErrors(lang, raw, errors);
     }
+    if (lastPlaceNameEmpty) renderPlaceNameError(lang, true);
     mapApi.refreshLang();
     originPicker.refreshLang();
   });

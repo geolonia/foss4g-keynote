@@ -226,7 +226,9 @@ export function initContribution(): void {
     setCount();
     if (!seenChart[id]) {
       seenChart[id] = true;
-      bump(originCounts, entityField(e, "origin"), seeded);
+      // cmd_757 最小追加: placeName(地名として必ず読める新規属性)があればそれを
+      // 棒グラフのラベルに使い、無ければ従来通りorigin(仕込み101件はこちら)を使う。
+      bump(originCounts, entityField(e, "placeName") ?? entityField(e, "origin"), seeded);
       bump(specialtyCounts, entityField(e, "specialty"), seeded);
       renderChart();
     }
